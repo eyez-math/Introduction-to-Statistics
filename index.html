@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מעבדת נתונים – סטטיסטיקה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8EDF1; --surface:#FFFFFF; --ink:#15233A; --muted:#566377; --line:#C7D1DB; --grid:#E1E7EC;
+  --mode:#C2185B; --median:#08806F; --mean:#C97700;
+  --btn:#15233A; --btnInk:#FFFFFF; --soft:#F2F5F8;
+  --cs:62%; --cl:84%; --cardInk:#15233A;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1621; --surface:#162130; --ink:#E5EBF2; --muted:#9AA8B9; --line:#2B394C; --grid:#1D2939;
+    --mode:#F06292; --median:#2EC4AE; --mean:#FFB02E;
+    --btn:#E5EBF2; --btnInk:#0E1621; --soft:#1B2738;
+    --cs:36%; --cl:31%; --cardInk:#F0F4F8;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1621; --surface:#162130; --ink:#E5EBF2; --muted:#9AA8B9; --line:#2B394C; --grid:#1D2939;
+  --mode:#F06292; --median:#2EC4AE; --mean:#FFB02E;
+  --btn:#E5EBF2; --btnInk:#0E1621; --soft:#1B2738;
+  --cs:36%; --cl:31%; --cardInk:#F0F4F8;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Rubik','Assistant',Arial,sans-serif;display:flex;flex-direction:column;font-size:18px;line-height:1.5}
+button{font-family:inherit;font-size:inherit;color:inherit}
+
+/* header */
+.top{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:12px 20px 8px}
+.top h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.top .sub{color:var(--muted);font-size:16px}
+.scen{display:flex;gap:6px;margin-inline-start:auto;flex-wrap:wrap}
+#nsel{margin-inline-start:0}
+.scen button{background:transparent;border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:16px}
+.scen button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fs{background:transparent;border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:15px;color:var(--muted)}
+
+.steps{display:flex;gap:4px;padding:0 20px 10px;overflow-x:auto}
+.steps button{display:flex;align-items:center;gap:8px;background:transparent;border:0;border-bottom:3px solid transparent;padding:6px 10px;cursor:pointer;white-space:nowrap;color:var(--muted);font-size:17px}
+.steps .num{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1.5px solid currentColor;font-size:14px;font-weight:700}
+.steps button[aria-current="step"]{color:var(--ink);border-bottom-color:var(--ink);font-weight:500}
+.steps button[aria-current="step"] .num{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* main */
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(330px,400px) 1fr;gap:14px;padding:0 20px}
+.panel{background:var(--surface);border-radius:14px;padding:18px 20px;overflow:auto;border:1px solid var(--line)}
+.board{position:relative;background:var(--surface);border-radius:14px;border:1px solid var(--line);overflow:hidden;min-height:360px}
+#axes{position:absolute;inset:0;width:100%;height:100%}
+#cards,#over{position:absolute;inset:0}
+#over{pointer-events:none}
+
+.foot{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 12px;gap:10px}
+.foot .hint{color:var(--muted);font-size:14px}
+
+/* panel content */
+.panel h2{margin:0 0 6px;font-size:28px;line-height:1.2}
+.panel .kick{color:var(--muted);font-size:15px;margin-bottom:2px}
+.panel p{margin:.5em 0}
+.lead{font-size:20px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.act,.ghost{border-radius:10px;padding:11px 18px;cursor:pointer;font-weight:500;font-size:18px}
+.act{background:var(--btn);color:var(--btnInk);border:1.5px solid var(--btn)}
+.ghost{background:transparent;border:1.5px solid var(--line)}
+.act:disabled,.ghost:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:3px solid var(--median);outline-offset:2px}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;margin:6px 0 4px}
+.seg button{background:transparent;border:0;padding:8px 16px;cursor:pointer;font-size:17px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.count{font-size:20px;font-weight:500}
+.defs{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px}
+.defs dt{font-weight:700}
+.defs dd{margin:0}
+.note{background:var(--soft);border-radius:10px;padding:10px 14px;margin:12px 0;border-inline-start:4px solid var(--line)}
+.note.q{border-inline-start-color:var(--ink)}
+.note.mode{border-inline-start-color:var(--mode)}
+.note.median{border-inline-start-color:var(--median)}
+.note.mean{border-inline-start-color:var(--mean)}
+.note b.t{display:block;margin-bottom:2px}
+.res{font-size:24px;font-weight:700;margin:10px 0}
+.res.mode{color:var(--mode)} .res.median{color:var(--median)} .res.mean{color:var(--mean)}
+
+table.ft{border-collapse:collapse;margin:12px 0;font-size:19px;width:100%}
+.ft th,.ft td{border:1.5px solid var(--line);padding:6px 10px;text-align:center}
+.ft th{background:var(--soft);font-weight:500;font-size:16px}
+.ft td{font-variant-numeric:tabular-nums}
+.ft tr.hi-mode td{background:color-mix(in srgb,var(--mode) 18%,transparent);font-weight:700}
+.ft tr.hi-median td{background:color-mix(in srgb,var(--median) 20%,transparent);font-weight:700}
+.ft tr.hi-mean td{background:color-mix(in srgb,var(--mean) 20%,transparent);font-weight:700}
+.ft tfoot td{font-weight:700}
+.ft .wait{color:var(--line)}
+.cmp td:first-child{text-align:start;font-weight:500}
+.chg{color:var(--mode);font-weight:700}
+
+.m{direction:ltr;unicode-bidi:isolate;display:inline-block}
+.math.rtl{direction:rtl;flex-wrap:nowrap;font-size:20px}
+.math{direction:ltr;unicode-bidi:isolate;text-align:center;font-size:24px;margin:10px 0;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.frac{display:inline-flex;flex-direction:column;align-items:center;line-height:1.2}
+.frac>span:first-child{border-bottom:2px solid currentColor;padding:0 .3em 2px}
+.frac>span:last-child{padding:2px .3em 0}
+i.v{font-family:'Times New Roman',serif;font-size:1.1em}
+.xbar{text-decoration:overline;font-family:'Times New Roman',serif;font-style:italic;font-size:1.1em}
+
+.slider{margin:10px 0}
+.slider label{display:block;font-weight:500;margin-bottom:4px}
+.slider input{width:100%;accent-color:var(--ink);height:32px}
+
+/* cards */
+.card{position:absolute;left:0;top:0;display:flex;align-items:center;justify-content:center;
+  background:hsl(var(--h) var(--cs) var(--cl));color:var(--cardInk);font-weight:700;border-radius:7px;
+  border:1.5px solid color-mix(in srgb,var(--ink) 22%,transparent);
+  transition:transform .65s cubic-bezier(.2,.8,.2,1),width .65s cubic-bezier(.2,.8,.2,1),height .65s cubic-bezier(.2,.8,.2,1),opacity .45s,box-shadow .3s,border-radius .4s;
+  font-variant-numeric:tabular-nums;user-select:none}
+.card .n{transition:opacity .3s;white-space:nowrap}
+.card.bar{border-radius:4px 4px 0 0;align-items:flex-start}
+.card.bar .n{position:absolute;bottom:100%;margin-bottom:3px;color:var(--ink);font-weight:500}
+.card.hideN .n{opacity:0}
+.card.extra{border:2.5px dashed var(--ink)}
+.card.g-mode{box-shadow:0 0 0 3px var(--mode)}
+.card.g-median{box-shadow:0 0 0 4px var(--median)}
+.card.g-mean{box-shadow:0 0 0 3px var(--mean)}
+.card.g-count{box-shadow:0 0 0 2px var(--ink)}
+.board.merged .card{border-radius:0;border-color:color-mix(in srgb,var(--ink) 10%,transparent)}
+.board.merged .card .n{opacity:0}
+
+/* axes */
+#axes .ax{stroke:var(--ink);stroke-width:2}
+#axes .gl{stroke:var(--grid);stroke-width:1.5}
+#axes .tk{fill:var(--ink);font-size:16px;font-family:Rubik,Arial,sans-serif}
+#axes .tt{fill:var(--muted);font-size:16px;font-family:Rubik,Arial,sans-serif}
+#axes .tl{stroke:var(--line);stroke-width:2}
+#axes .th{fill:var(--soft)}
+#axes .hl{opacity:.16}
+#axes .hl.mode{fill:var(--mode)} #axes .hl.median{fill:var(--median)} #axes .hl.mean{fill:var(--mean)} #axes .hl.count{fill:var(--ink);opacity:.08}
+#axes .tval{fill:var(--ink);font-weight:700;font-family:Rubik,Arial,sans-serif}
+#axes .tx{font-weight:500}
+#axes .tlbl{fill:var(--ink);font-weight:500;font-family:Rubik,Arial,sans-serif}
+#axes .tsub{fill:var(--muted);font-family:Rubik,Arial,sans-serif}
+#axes .lvl{stroke:var(--mean);stroke-width:3;stroke-dasharray:8 6}
+
+/* overlay tags */
+.tag,.mk{direction:rtl;unicode-bidi:isolate}
+.tag{position:absolute;transform:translate(-50%,-100%);font-weight:700;font-size:18px;white-space:nowrap;padding:2px 8px;border-radius:6px;background:var(--surface)}
+.tag.mode{color:var(--mode)} .tag.median{color:var(--median)} .tag.mean{color:var(--mean)} .tag.plain{color:var(--ink);font-weight:500}
+.tag.below{transform:translate(-50%,0)}
+.mk{position:absolute;transform:translateX(-50%);text-align:center;font-weight:700;font-size:17px;white-space:nowrap;line-height:1.1}
+.mk::before{content:"";display:block;margin:0 auto 3px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:13px solid currentColor}
+.mk.median{color:var(--median)} .mk.mean{color:var(--mean)}
+.mk.ghost{opacity:.35}
+.mk.ghost span{display:none}
+
+@media (max-width:860px){
+  body{height:auto;min-height:100%}
+  html{height:auto}
+  .main{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .board{order:-1;height:56vh;min-height:330px}
+  .panel{overflow:visible}
+  .top h1{font-size:22px}
+  .scen{margin-inline-start:0}
+  .foot .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .card,.card .n{transition:none}
+}
+.coin{position:absolute;left:0;top:0;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#5a4300;background:radial-gradient(circle at 35% 30%,#FFE58A,#E8B923 70%,#C9971A);border:2px solid #B88A12;box-shadow:0 2px 3px rgba(0,0,0,.18);transition:transform .8s cubic-bezier(.2,.8,.2,1),opacity .4s,width .5s,height .5s;opacity:0}
+#coins,#c100{position:absolute;inset:0;pointer-events:none}
+#axes .sbar{fill:var(--median);opacity:.75}
+#axes .tline{fill:none;stroke:var(--mean);stroke-width:3}
+#axes .tdot{fill:var(--mean)}
+#axes .zz{stroke:var(--ink);stroke-width:2.5;fill:none}
+.seg.wrap{flex-wrap:wrap;display:flex}
+details{margin:4px 0 2px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink);font-size:15px}
+#axes .fl{stroke:var(--muted);stroke-width:1.5}
+#axes .tval.bad{fill:var(--mode);text-decoration:line-through}
+.ql{margin:6px 0 8px;padding-inline-start:22px}
+.ql li{margin:4px 0}
+.ghost.sm{padding:6px 12px;font-size:16px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>מעבדת נתונים</h1>
+    <div class="sub">מאיסוף נתונים ועד מדדי מרכז</div>
+  </div>
+  <div class="scen" id="scen" aria-label="נושא הסקר"></div>
+  <div class="scen" id="nsel" aria-label="מספר נתונים"></div>
+  <button class="fs" id="fs" type="button">מסך מלא</button>
+</header>
+<nav class="steps" id="steps" aria-label="שלבים"></nav>
+<main class="main">
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+  <section class="board" id="board" dir="ltr" aria-label="לוח הנתונים">
+    <svg id="axes" aria-hidden="true"></svg>
+    <div id="cards"></div>
+    <div id="over"></div>
+  </section>
+</main>
+<footer class="foot">
+  <button class="ghost" id="prev" type="button">שלב קודם</button>
+  <span class="hint">אפשר לעבור בין שלבים גם בחיצים במקלדת</span>
+  <button class="act" id="next" type="button">שלב הבא</button>
+</footer>
+
+<script>
+/* ===== תרחישים – אפשר לערוך כאן ===== */
+const SCEN = [
+  { key:'sib', tab:'מספר אחים', intro:n=>`שאלנו ${n} תלמידים בשכבה`, q:'כמה אחים ואחיות יש לך?',
+    datum:'התשובה של תלמיד אחד', x:'מספר אחים', who:'תלמידים', verb:'ענו כך', each:'לכל תלמיד', step:1,
+    sumMeaning:'מספר כל האחים של כל התלמידים יחד',
+    sets:{25:[[0,1],[1,6],[2,8],[3,5],[4,3],[5,1],[6,1]], 28:[[0,1],[1,5],[2,8],[3,10],[4,2],[5,1],[6,1]]},
+    how:v=>`כמה תלמידים ענו ${v}?`, half:v=>`לפחות חצי מהתלמידים ענו ${v} או פחות, ולפחות חצי ענו ${v} או יותר.`,
+    d0:['מה לדעתכם תהיה התשובה הנפוצה ביותר?','מה הנתון הקטן ביותר והגדול ביותר שאתם מצליחים למצוא?','האם תשובה כמו 2.5 אחים הגיונית? למה?','האם התלמידים האלה מייצגים את כל תלמידי הארץ? למה כן ולמה לא?','האם קל לדעת כמה תלמידים ענו 3 כשהנתונים מפוזרים כך?','מה הייתם עושים כדי לענות על השאלות האלה מהר יותר?'],
+    d1:['מה הנתון הקטן ביותר? ומה הגדול ביותר?','כמה תלמידים ענו שאין להם אחים בכלל?','כמה תלמידים ענו 3 אחים או יותר?','איזה מספר אחים חוזר הכי הרבה פעמים?','איזה מספר נמצא בדיוק באמצע השורה?','למה עכשיו קל יותר לספור כמה תלמידים ענו 2?'],
+    pct:(p,v)=>`${p}% מהתלמידים ענו שיש להם ${v} אחים.`,
+    out:{min:0,max:15,def:12,btn:'הוסיפו תלמיד עם הרבה אחים',text:v=>`הצטרף לשכבה תלמיד עם ${v} אחים`},
+    ask:'איזה מדד מתאר טוב יותר כמה אחים יש לתלמיד "רגיל" בשכבה?',
+    ans:'החציון. תלמיד אחד משך את הממוצע למעלה, אבל אצל רוב התלמידים לא השתנה כלום, והחציון נשאר במקום.' },
+  { key:'sleep', tab:'שעות שינה', intro:n=>`שאלנו ${n} תלמידים בשכבה`, q:'כמה שעות ישנת בלילה האחרון?',
+    datum:'התשובה של תלמיד אחד', x:'שעות שינה', who:'תלמידים', verb:'ענו כך', each:'לכל תלמיד', step:1,
+    sumMeaning:'מספר כל שעות השינה של כל התלמידים יחד',
+    sets:{25:[[5,2],[6,3],[7,6],[8,8],[9,4],[10,2]], 28:[[5,2],[6,4],[7,8],[8,9],[9,2],[10,3]]},
+    how:v=>`כמה תלמידים ישנו ${v} שעות?`, half:v=>`לפחות חצי מהתלמידים ישנו ${v} שעות או פחות, ולפחות חצי ישנו ${v} שעות או יותר.`,
+    d0:['כמה שעות לדעתכם ישן תלמיד "רגיל" בשכבה?','איך תלמיד יודע כמה שעות בדיוק ישן? האם התשובות מדויקות?','האם הלילה האחרון מייצג כל לילה? מה אם אתמול היה סוף שבוע או ערב לפני מבחן?','למה כל התשובות הן מספרים שלמים? מה עשה מי שישן שבע וחצי שעות?','מה הכי מעט והכי הרבה שעות שאתם רואים?','איך הייתם מסדרים את הנתונים כדי לענות מהר?'],
+    d1:['מה הכי מעט שעות שישנו? ומה הכי הרבה?','כמה תלמידים ישנו פחות מ-7 שעות?','כמה תלמידים ישנו 9 שעות או יותר?','איזה מספר שעות חוזר הכי הרבה פעמים?','איזה מספר נמצא בדיוק באמצע השורה?','ההמלצה לבני נוער היא לפחות 8 שעות שינה. כמה תלמידים עומדים בה?'],
+    pct:(p,v)=>`${p}% מהתלמידים ישנו ${v} שעות.`,
+    out:{min:0,max:14,def:2,btn:'הוסיפו תלמיד שכמעט לא ישן',text:v=>`נוסף תלמיד שישן ${v} שעות`},
+    ask:'איזה מדד מתאר טוב יותר כמה שעות ישנים רוב התלמידים?',
+    ans:'החציון. הנתון החריג משך את הממוצע למטה, אבל רוב התלמידים ישנים בדיוק כמו קודם.' },
+  { key:'grade', tab:'ציונים במבחן', intro:n=>`אספנו את הציונים של ${n} תלמידים`, q:'מה הציון שקיבלת במבחן?',
+    datum:'הציון של תלמיד אחד', x:'ציון', who:'תלמידים', verb:'קיבלו את הציון הזה', each:'לכל תלמיד', step:10,
+    sumMeaning:'סכום הציונים של כל התלמידים יחד',
+    sets:{25:[[50,2],[60,3],[70,5],[80,8],[90,5],[100,2]], 28:[[50,2],[60,4],[70,8],[80,8],[90,4],[100,2]]},
+    how:v=>`כמה תלמידים קיבלו ${v}?`, half:v=>`לפחות חצי מהתלמידים קיבלו ${v} או פחות, ולפחות חצי קיבלו ${v} או יותר.`,
+    d0:['איזה ציון לדעתכם הכי נפוץ בכיתה?','למה כל הציונים הם עשרות שלמות? מה זה אומר על הנתונים?','כמה תלמידים קיבלו 90 ומעלה? כמה קל לספור כשהכרטיסים מפוזרים?','אפשר לדעת מהנתונים אם המבחן היה קשה? מה הייתם בודקים?','מה הציון הנמוך ביותר? ומה הגבוה ביותר?','האם המורה יכול להחליט מהנתונים האלה אם לחזור על החומר? איך?'],
+    d1:['מה הציון הנמוך ביותר? ומה הגבוה ביותר?','כמה תלמידים נכשלו (ציון מתחת ל-55)?','כמה תלמידים קיבלו 90 ומעלה?','איזה ציון חוזר הכי הרבה פעמים?','איזה ציון נמצא בדיוק באמצע השורה?','לפי השורה, האם רוב הכיתה הצליחה במבחן?'],
+    pct:(p,v)=>`${p}% מהתלמידים קיבלו ${v}.`,
+    out:{min:0,max:100,def:0,btn:'הוסיפו תלמיד שלא ניגש (ציון 0)',text:v=>`נוסף תלמיד עם הציון ${v}`},
+    ask:'אחרי שנוסף ציון 0, האם הממוצע עדיין מתאר נכון את רמת הכיתה?',
+    ans:'לא ממש. ציון חריג אחד הוריד את הממוצע, אבל הציון האמצעי של הכיתה, החציון, לא השתנה.' },
+  { key:'choco', tab:'מחיר שוקו', intro:n=>`בדקנו את מחיר השוקו ב-${n} חנויות`, q:'כמה עולה שוקו בחנות?',
+    datum:'המחיר בחנות אחת', x:'מחיר בשקלים', who:'חנויות', verb:'מוכרות במחיר הזה', each:'לכל חנות', step:1,
+    sumMeaning:'סכום המחירים בכל החנויות יחד',
+    sets:{25:[[5,3],[6,7],[7,9],[8,4],[9,2]], 28:[[5,4],[6,10],[7,5],[8,7],[9,2]]},
+    how:v=>`בכמה חנויות המחיר ${v} ₪?`, half:v=>`בלפחות חצי מהחנויות המחיר ${v} ₪ או פחות, ובלפחות חצי ${v} ₪ או יותר.`,
+    d0:['כמה עולה שוקו בדרך כלל, לדעתכם?','למה המחיר שונה מחנות לחנות?','מה המחיר הזול ביותר והיקר ביותר שאתם רואים?','האם החנויות שבדקנו מייצגות את כל הארץ? איפה הייתם בודקים עוד?','אם תמצאו שוקו ב-20 ₪, איפה זה יכול להיות?','מה צריך לעשות עם הנתונים כדי לדעת איפה כדאי לקנות?'],
+    d1:['מה המחיר הזול ביותר? ומה היקר ביותר?','בכמה חנויות השוקו עולה פחות מ-7 ₪?','בכמה חנויות הוא עולה 8 ₪ או יותר?','איזה מחיר חוזר הכי הרבה פעמים?','איזה מחיר נמצא בדיוק באמצע השורה?','אם הייתם צרכנים, איזה מחיר הייתם מצפים לשלם?'],
+    pct:(p,v)=>`ב-${p}% מהחנויות השוקו עולה ${v} ₪.`,
+    out:{min:4,max:20,def:15,btn:'הוסיפו חנות בשדה התעופה',text:v=>`נוספה חנות שמוכרת ב-${v} ₪`},
+    ask:'איזה מחיר כדאי לפרסם כ"מחיר הרגיל" של שוקו?',
+    ans:'את החציון (או השכיח). חנות יקרה אחת העלתה את הממוצע, אבל ברוב החנויות המחיר לא השתנה.' },
+  { key:'way', tab:'דרך לבית הספר', qual:true, intro:n=>`שאלנו ${n} תלמידים בשכבה`, q:'איך הגעת היום לבית הספר?',
+    datum:'התשובה של תלמיד אחד', x:'דרך הגעה', who:'תלמידים', verb:'ענו כך', step:1,
+    cats:[{t:'ברגל',e:'🚶'},{t:'אוטובוס',e:'🚌'},{t:'רכב',e:'🚗'},{t:'אופניים',e:'🚲'}],
+    sets:{25:[[0,6],[1,10],[2,7],[3,2]], 28:[[0,7],[1,11],[2,8],[3,2]]},
+    pct:(p,v)=>`${p}% מהתלמידים ענו "${v}".`,
+    d0:['מה לדעתכם הדרך הנפוצה ביותר להגיע לבית הספר?','האם התשובות כאן הן מספרים? במה הסקר הזה שונה מהקודמים?','האם אפשר לשאול "מה התשובה הגדולה ביותר"? למה?','האם התשובות היו שונות ביום גשום? ובחופש?','למה לדעתכם מעט תלמידים מגיעים באופניים?','למי המידע הזה יכול לעזור? (מועצה, חברת הסעות, בית הספר)'],
+    d1:['האם אפשר לסדר את התשובות "מהקטן לגדול"? למה לא?','באיזה סדר בחרנו לקבץ? האם הסדר משנה משהו?','איזו קבוצה הכי גדולה?','כמה תלמידים לא מגיעים ברכב?','האם יש כאן "אמצע"? מה הוא היה אומר?'],
+    ask:'למה בסקר הזה לא חישבנו ממוצע וחציון?',
+    ans:'כי התשובות הן לא מספרים. אי אפשר לחבר "אוטובוס" ו"ברגל", ואי אפשר לסדר אותן מהקטן לגדול. המדד היחיד שמתאים הוא השכיח, ואת הנתונים מציגים בעזרת אחוזים ודיאגרמה.' }
+];
+const STAGES = ['איסוף','מיון','טבלת שכיחויות','שכיח','חציון','ממוצע','שכיחות יחסית','דיאגרמה','למה זה חשוב'];
+
+/* ===== עזרים ===== */
+const $ = s => document.querySelector(s);
+const board=$('#board'), cardsEl=$('#cards'), axes=$('#axes'), over=$('#over'), panel=$('#panel');
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function fmt(x){ if(Number.isInteger(x)) return String(x); const r=Math.round(x*100)/100; return Math.abs(r-x)>1e-9?`≈ <bdi dir="ltr">${r}</bdi>`:String(r); }
+const fmtV=x=>`<bdi dir="ltr">${fmt(x).replace(/<\/?bdi[^>]*>/g,'')}</bdi>`;
+const dec=x=>String(Math.round(x*10000)/10000);
+const r2=x=>{const r=Math.round(x*100)/100; return {t:String(r),ap:Math.abs(r-x)>1e-9}};
+const p1=x=>{const r=Math.round(x*10)/10; return {t:String(r)+'%',ap:Math.abs(r-x)>1e-9}};
+const apS=o=>(o.ap?'≈':'')+o.t;
+const m = x => `<span class="m" dir="ltr">${x}</span>`;
+const frac=(a,b)=>`<span class="frac"><span>${a}</span><span>${b}</span></span>`;
+const range=(lo,hi,st)=>{const r=[];for(let v=lo;v<=hi+1e-9;v+=st)r.push(+v.toFixed(6));return r};
+const HEB=/[\u0590-\u05FF]/;
+const lbl=v=>S.sc.qual?S.sc.cats[v].t:v;
+const cardText=v=>S.sc.qual?S.sc.cats[v].e:v;
+
+let S = { scI:0, stage:0, tok:0, N:25 };
+
+/* ===== בניית נתונים ===== */
+function mk(v,id,isX){
+  const el=document.createElement('div'); el.className='card'+(isX?' extra':'');
+  el.innerHTML='<span class="n"></span>'; cardsEl.appendChild(el);
+  const c={v,base:v,id,isX,el,collected:isX}; setVal(c,v); return c;
+}
+function setVal(c,v){
+  c.v=v; c.el.querySelector('.n').textContent=cardText(v);
+  const d=S.freq, lo=d[0][0], hi=d[d.length-1][0];
+  const t=clamp((v-lo)/(hi-lo),0,1);
+  c.el.style.setProperty('--h', Math.round(205-t*170));
+}
+function build(i){
+  S.scI=i; S.sc=SCEN[i]; S.freq=S.sc.sets[S.N]; cardsEl.innerHTML='';
+  const vals=[]; S.freq.forEach(([v,f])=>{for(let k=0;k<f;k++)vals.push(v)});
+  shuffle(vals);
+  S.cards=vals.map((v,id)=>mk(v,id,false));
+  S.extra=mk(S.sc.qual?0:S.sc.out.def,vals.length,true);
+  const n=vals.length, cols=Math.ceil(Math.sqrt(n*1.8)), rows=Math.ceil(n/cols);
+  const cells=shuffle([...Array(cols*rows).keys()]).slice(0,n);
+  S.cards.forEach((c,k)=>{const cc=cells[k]%cols, rr=Math.floor(cells[k]/cols);
+    c.nx=(cc+.5+(Math.random()-.5)*.45)/cols; c.ny=(rr+.5+(Math.random()-.5)*.45)/rows; c.rot=(Math.random()-.5)*24;});
+  S.scCols=cols;
+  const {W}=dims(); [...S.cards,S.extra].forEach(c=>hide(c,W,true));
+  void cardsEl.offsetWidth;
+  renderScen();
+}
+
+/* ===== סטטיסטיקה ===== */
+function useExtra(){return !S.sc.qual&&((S.stage===4&&S.even)||(S.stage===8&&S.outOn))}
+function active(){const a=S.cards.slice(); if(useExtra()) a.push(S.extra); return a}
+function stats(arr){
+  const vs=arr.map(c=>c.v).sort((a,b)=>a-b), n=vs.length, sum=vs.reduce((a,b)=>a+b,0);
+  const med = n%2 ? vs[(n-1)/2] : (vs[n/2-1]+vs[n/2])/2;
+  const cnt=new Map(); vs.forEach(v=>cnt.set(v,(cnt.get(v)||0)+1));
+  let mode=null,mf=0; cnt.forEach((f,v)=>{if(f>mf){mf=f;mode=v}});
+  const modes=[...cnt].filter(([v,f])=>f===mf).map(a=>a[0]);
+  const rows=[...cnt].sort((a,b)=>a[0]-b[0]).map(([v,f])=>({v,f}));
+  let cum=0; rows.forEach(r=>{cum+=r.f; r.cum=cum; r.xf=r.v*r.f; r.rel=r.f/n});
+  const sumX=rows.reduce((a,r)=>a+r.v,0);
+  return {vs,n,sum,mean:sum/n,med,mode,modes,mf,rows,lo:vs[0],hi:vs[n-1],sumX};
+}
+function baseStats(){return stats(S.cards.map(c=>({v:c.base})))}
+function applyTf(){S.cards.forEach(c=>setVal(c,c.base*S.tfMul+S.tfAdd*S.sc.step));}
+function rankIt(arr){const s=arr.slice().sort((a,b)=>a.v-b.v||a.id-b.id); s.forEach((c,i)=>c.rank=i); return s}
+
+/* ===== פריסה ===== */
+function dims(){const r=board.getBoundingClientRect(); return {W:r.width,H:r.height}}
+function place(c,x,y,w,h,o={}){
+  const st=c.el.style;
+  st.width=w+'px'; st.height=h+'px';
+  st.transform=`translate(${x}px,${y}px) rotate(${o.rot||0}deg)`;
+  st.opacity=o.op??1;
+  st.fontSize=(o.fs||Math.max(13,Math.min(w*.6,h*.6,34)))+'px';
+  const cl=c.el.classList;
+  cl.toggle('bar',!!o.bar); cl.toggle('hideN',!!o.hideN);
+  ['mode','median','mean','count'].forEach(g=>cl.toggle('g-'+g,o.g===g));
+}
+function hide(c,W,instant){
+  if(instant){c.el.style.transition='none'}
+  place(c,W/2-15,-50,30,24,{op:0});
+  if(instant){void c.el.offsetWidth; c.el.style.transition=''}
+}
+/* שורה מסודרת משמאל לימין: הקטן ביותר בצד שמאל */
+function lineLayout(list,W,H,yc,maxW=64,rtl=false){
+  const n=list.length, gap=n>28?4:6;
+  const cw=Math.max(14,Math.min(maxW,(W-32-(n-1)*gap)/n)), ch=Math.min(cw*1.3,84);
+  const x0=(W-(n*cw+(n-1)*gap))/2, pos=new Map();
+  list.forEach((c,i)=>{const x=x0+i*(cw+gap); pos.set(c,{x:rtl?W-x-cw:x,y:yc-ch/2,w:cw,h:ch});});
+  return {pos,cw,ch};
+}
+
+/* ---- טבלה אופקית על הלוח (משמאל לימין) ---- */
+const ROWLBL={x:()=>['מה?',S.sc.x], tray:()=>['הנתונים',''], f:()=>['כמה?','שכיחות'], cum:()=>['כמה עד כאן?','שכיחות מצטברת'],
+  xf:()=>['מכפלות','מה × כמה'], rel:()=>['שכיחות יחסית','כמה ÷ סה״כ'], pct:()=>['אחוזים','שכיחות יחסית × 100']};
+function tableGeom(st,W,H,top,keys,total,big){
+  const k=st.rows.length, pad=16, hdrW=clamp(W*.17,124,200), totW=total?clamp(W*.1,76,120):0;
+  const colW=(W-2*pad-hdrW-totW)/k, rowH=big?clamp(H*.13,58,100):clamp(H*.095,46,82), hasTray=keys.includes('tray');
+  let cw=Math.min((colW-17)/2,64), ch, per, trayH;
+  const calc=()=>{ch=cw*.78; per=Math.max(1,Math.floor((colW-7)/(cw+5)+1e-6)); trayH=Math.ceil(st.mf/per)*(ch+5)+16;};
+  calc();
+  const rh=key=>key==='tray'?trayH:key==='xf'?rowH*1.3:key==='rel'?rowH*1.75:rowH;
+  const tot=()=>keys.reduce((a,key)=>a+rh(key),0);
+  while(hasTray&&tot()>H-top-12&&cw>14){cw*=.9;calc();}
+  const ys={}; let y=top; keys.forEach(key=>{ys[key]=y; y+=rh(key);});
+  const R=W-pad;
+  return {k,pad,hdrW,totW,colW,rowH,cw,ch,per,keys,ys,rh,top,bottom:y,total,
+    colX:i=>R-hdrW-(i+1)*colW, hdrX:R-hdrW, totX:pad, right:R, left:total?pad:R-hdrW-k*colW};
+}
+function fitTable(st,W,H,minTop,keys,total,big,bias=.4){
+  const T0=tableGeom(st,W,H,minTop,keys,total,big), h=T0.bottom-T0.top;
+  return tableGeom(st,W,H,Math.max(minTop,minTop+(H-minTop-h)*bias),keys,total,big);
+}
+function tableSVG(T,st,o={}){
+  let s='';
+  (o.hi||[]).forEach(h=>{s+=`<rect x="${T.colX(h.i)}" y="${T.top}" width="${T.colW}" height="${T.bottom-T.top}" class="hl ${h.c}"/>`});
+  s+=`<rect x="${T.hdrX}" y="${T.top}" width="${T.hdrW}" height="${T.bottom-T.top}" class="th"/>`;
+  if(T.total) s+=`<rect x="${T.totX}" y="${T.top}" width="${T.totW}" height="${T.bottom-T.top}" class="th"/>`;
+  [...T.keys.map(k=>T.ys[k]),T.bottom].forEach(y=>{s+=`<line x1="${T.left}" x2="${T.right}" y1="${y}" y2="${y}" class="tl"/>`});
+  const xs=[T.right,T.hdrX]; for(let i=0;i<T.k;i++) xs.push(T.colX(i)); if(T.total) xs.push(T.left);
+  xs.forEach(x=>{s+=`<line x1="${x}" x2="${x}" y1="${T.top}" y2="${T.bottom}" class="tl"/>`});
+  const fsM=Math.min(T.rowH*.46,32), fsL=Math.min(T.rowH*.36,22), fsS=Math.min(T.rowH*.27,16);
+  const txt=(x,y,t,cls,fs)=>`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" class="${cls}" font-size="${fs}"${HEB.test(t)?' direction="rtl"':''}>${t}</text>`;
+  T.keys.forEach(key=>{
+    const y0=T.ys[key], h=T.rh(key), yc=y0+h/2, [main,sub]=ROWLBL[key](), hx=T.hdrX+T.hdrW/2;
+    s+= sub ? txt(hx,yc-fsS*.75,main,'tlbl',fsL)+txt(hx,yc+fsL*.75,sub,'tsub',fsS) : txt(hx,yc,main,'tlbl',fsL);
+    if(key==='tray') return;
+    st.rows.forEach((r,i)=>{
+      const v=o.cell?o.cell(key,i,r):''; if(v===''||v==null) return;
+      const cx=T.colX(i)+T.colW/2;
+      if(typeof v==='object'&&v.fr){
+        const a=y0+h*.17, b=y0+h*.38, ln=y0+h*.275, half=Math.min(T.colW*.22,22);
+        s+=txt(cx,a,v.fr[0],'tsub',fsS*1.1)+`<line x1="${cx-half}" x2="${cx+half}" y1="${ln}" y2="${ln}" class="fl"/>`+txt(cx,b,v.fr[1],'tsub',fsS*1.1)+txt(cx,y0+h*.72,v.main,'tval',Math.min(fsM,T.colW*1.55/Math.max(2,String(v.main).length)));
+      } else if(typeof v==='object'){ s+=txt(cx,y0+h*.3,v.sub,'tsub',fsS)+txt(cx,y0+h*.66,v.main,'tval',fsM); }
+      else { const str=String(v); const fs=Math.min(fsM,T.colW*(key==='x'?1.7:1.55)/Math.max(2,str.length)); s+=txt(cx,yc,str,'tval'+(key==='x'?' tx':''),fs); }
+    });
+    if(T.total){const v=o.tot?o.tot(key):''; if(v!==''&&v!=null){
+      const bad=typeof v==='object'; s+=txt(T.totX+T.totW/2,yc,bad?v.t:v,(key==='x'&&!bad)?'tlbl':('tval'+(bad?' bad':'')),(key==='x'&&!bad)?fsL:fsM);}}
+  });
+  return s;
+}
+function trayPos(T,st,sorted){
+  const pos=new Map(), cnt=new Map(), top=T.ys.tray;
+  sorted.forEach(c=>{
+    const i=st.rows.findIndex(r=>r.v===c.v), f=st.rows[i].f, j=cnt.get(c.v)||0; cnt.set(c.v,j+1);
+    const r=Math.floor(j/T.per), ci=j%T.per, inRow=Math.min(T.per,f-r*T.per);
+    const rowW=inRow*T.cw+(inRow-1)*5, x0=T.colX(i)+(T.colW-rowW)/2;
+    pos.set(c,{x:x0+(inRow-1-ci)*(T.cw+5),y:top+8+r*(T.ch+5),w:T.cw,h:T.ch});
+  });
+  return pos;
+}
+function cellPos(T,st,c,key){const i=st.rows.findIndex(r=>r.v===c.v); return {x:T.colX(i)+T.colW/2-6,y:T.ys[key]+T.rowH/2-6,w:12,h:12}}
+
+/* ---- דיאגרמה ---- */
+function stackGeom(domain,maxF,W,H,padT,padB,gap=4,y0=0){
+  const padL=62,padR=22,colW=(W-padL-padR)/domain.length;
+  const cw=Math.min(colW*.72,110);
+  const unit=clamp((H-padT-padB)/(Math.max(maxF-y0,1)+1),8,y0?90:54);
+  const d0=domain[0], st=S.sc.step;
+  return {W,H,padL,padR,padT,padB,baseY:H-padB,colW,cw,unit,ch:unit-gap,gap,domain,maxF,y0,xv:v=>padL+colW*((v-d0)/st+.5)};
+}
+function stackPos(sorted,g){
+  const cnt=new Map(), pos=new Map();
+  sorted.forEach(c=>{const j=cnt.get(c.v)||0; cnt.set(c.v,j+1);
+    const jj=j-(g.y0||0); pos.set(c,{x:g.xv(c.v)-g.cw/2,y:g.baseY-(Math.max(jj,0)+1)*g.unit+g.gap,w:g.cw,h:jj<0?2:g.ch,cut:jj<0});});
+  return pos;
+}
+function axesSVG(g){
+  const {W,padL,padR,padT,baseY,unit,domain}=g; let s='';
+  const y0=g.y0||0, maxTick=Math.min(Math.floor((baseY-padT)/unit+1e-6),g.maxF-y0+1), tk=maxTick>12?2:1;
+  const topY=baseY-maxTick*unit;
+  for(let f=0;f<=maxTick;f+=tk){const y=baseY-f*unit;
+    s+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" class="gl"/><text x="${padL-12}" y="${y+5}" text-anchor="end" class="tk">${f+y0}</text>`;}
+  const zz=(x,y,vert)=>vert?`<path d="M${x-9} ${y+4} l6 -6 l6 6 l6 -6" class="zz"/>`:`<path d="M${x-4} ${y+9} l6 -6 l-6 -6 l6 -6" class="zz"/>`;
+  if(y0) s+=`<path d="M${padL-9} ${baseY-unit*.35} l18 -6 M${padL-9} ${baseY-unit*.35+8} l18 -6" class="zz"/>`;
+  if(g.xBreak) s+=`<path d="M${padL+14} ${baseY+9} l6 -18 M${padL+22} ${baseY+9} l6 -18" class="zz"/>`;
+  s+=`<line x1="${padL}" x2="${W-padR}" y1="${baseY}" y2="${baseY}" class="ax"/><line x1="${padL}" x2="${padL}" y1="${baseY}" y2="${topY-10}" class="ax"/>`;
+  domain.forEach(v=>{s+=`<text x="${g.xv(v)}" y="${baseY+24}" text-anchor="middle" class="tk"${HEB.test(lbl(v))?' direction="rtl"':''}>${lbl(v)}</text>`});
+  s+=`<text x="${(padL+W-padR)/2}" y="${baseY+50}" text-anchor="middle" class="tt" direction="rtl">מה? ${S.sc.x}</text>`;
+  s+=`<text transform="translate(18 ${(topY+baseY)/2}) rotate(-90)" text-anchor="middle" class="tt" direction="rtl">כמה? שכיחות</text>`;
+  return s;
+}
+function tag(x,y,html,cls='plain',below=false){
+  const d=document.createElement('div'); d.className='tag '+cls+(below?' below':'');
+  const W=board.clientWidth; d.style.left=clamp(x,70,W-70)+'px'; d.style.top=y+'px'; d.innerHTML=html; over.appendChild(d); return d;
+}
+function marker(x,y,label,cls,ghost){
+  const d=document.createElement('div'); d.className='mk '+cls+(ghost?' ghost':'');
+  d.style.left=x+'px'; d.style.top=y+'px'; d.innerHTML=`<span>${label}</span>`; over.appendChild(d);
+}
+function dataDomain(){const f=S.freq; return range(f[0][0],f[f.length-1][0],S.sc.step)}
+function medPositions(n){return n%2?[(n+1)/2]:[n/2,n/2+1]}
+
+/* ---- דוגמת הירושה ---- */
+const INH=[{n:'נועה',a:30},{n:'איתי',a:25},{n:'מאיה',a:20},{n:'יונתן',a:15},{n:'שירה',a:10}];
+const coinsEl=document.createElement('div'); coinsEl.id='coins'; board.insertBefore(coinsEl,$('#over'));
+function ensureCoins(){ if(coinsEl.children.length) return; for(let i=0;i<20;i++){const d=document.createElement('div'); d.className='coin'; d.textContent='5₪'; coinsEl.appendChild(d);} }
+function hideCoins(){[...coinsEl.children].forEach(d=>{d.style.opacity=0});}
+function drawInh(W,H){
+  ensureCoins();
+  const k=INH.length, colW=(W-80)/k, d=Math.min(colW*.5,(H-190)/7.5,58), stp=d*.62, baseY=H-70, cx=i=>40+colW*(i+.5);
+  const coins=[...coinsEl.children], st=S.inh, per=INH.map(o=>st===2?4:o.a/5);
+  let idx=0; const pos=[];
+  INH.forEach((o,i)=>{for(let j=0;j<o.a/5;j++){pos.push({i,j});}});
+  // יעד לכל מטבע
+  const eq=[]; INH.forEach((o,i)=>{for(let j=0;j<4;j++) eq.push({i,j});});
+  coins.forEach((el,ci)=>{
+    let x,y;
+    if(st===1){const r=Math.floor(ci/5), c=ci%5; x=W/2+(c-2)*(d+6)-d/2; y=H/2-80+r*(d+6)-d/2;}
+    else {const t=st===2?eq[ci]:pos[ci]; x=cx(t.i)-d/2; y=baseY-d-t.j*stp;}
+    el.style.width=el.style.height=d+'px'; el.style.fontSize=(d*.32)+'px'; el.style.opacity=1;
+    el.style.transform=`translate(${x}px,${y}px)`; el.style.zIndex=st===1?1:Math.round(2000-y);
+  });
+  let s=`<line x1="30" x2="${W-30}" y1="${baseY}" y2="${baseY}" class="ax"/>`;
+  if(st===2){const y=baseY-d-3*stp-d*.15; s+=`<line x1="30" x2="${W-30}" y1="${y}" y2="${y}" class="lvl"/>`;}
+  axes.innerHTML=s;
+  INH.forEach((o,i)=>{tag(cx(i),baseY+10,o.n,'plain',true);
+    if(st!==1){const a=st===2?20:o.a; tag(cx(i),baseY-d-(a/5-1)*stp-10,`${a} ₪`,st===2?'mean':'plain');}});
+  if(st===1) tag(W/2,H/2-80-d/2-14,'100 ₪ ביחד','mean');
+}
+
+/* ---- דוגמאות לחיתוך ציר ---- */
+const SHOE=[[36,2],[37,3],[38,5],[39,6],[40,5],[41,4],[42,2],[43,1]];
+const TEMP=[['א׳',24],['ב׳',26],['ג׳',25],['ד׳',28],['ה׳',31],['ו׳',29],['ש׳',27]];
+const tx=(x,y,t,cls,anc='middle',extra='')=>`<text x="${x}" y="${y}" text-anchor="${anc}" class="${cls}"${HEB.test(String(t))?' direction="rtl"':''} ${extra}>${t}</text>`;
+function shoeSVG(W,H,cut){
+  const lo=cut?36:0, hi=43, n=hi-lo+1, padL=62,padR=22,padT=40,padB=70, baseY=H-padB, colW=(W-padL-padR)/n, maxF=7, unit=(baseY-padT)/maxF;
+  let s='';
+  for(let f=0;f<=maxF;f++){const y=baseY-f*unit; s+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" class="gl"/>`+tx(padL-12,y+5,f,'tk','end');}
+  SHOE.forEach(([v,f])=>{const x=padL+colW*(v-lo); s+=`<rect x="${x+colW*.12}" y="${baseY-f*unit}" width="${colW*.76}" height="${f*unit}" class="sbar"/>`;});
+  for(let v=lo;v<=hi;v++){ if(n<=12||v%4===0) s+=tx(padL+colW*(v-lo+.5),baseY+24,v,'tk'); }
+  s+=`<line x1="${padL}" x2="${W-padR}" y1="${baseY}" y2="${baseY}" class="ax"/><line x1="${padL}" x2="${padL}" y1="${baseY}" y2="${padT-10}" class="ax"/>`;
+  if(cut) s+=`<path d="M${padL+14} ${baseY+9} l6 -18 M${padL+22} ${baseY+9} l6 -18" class="zz"/>`;
+  s+=tx((padL+W-padR)/2,baseY+50,'מה? מידת נעליים','tt')+`<text transform="translate(18 ${(padT+baseY)/2}) rotate(-90)" text-anchor="middle" class="tt" direction="rtl">כמה? מספר תלמידים</text>`;
+  return s;
+}
+function tempSVG(W,H,cut){
+  const lo=cut?20:0, hi=cut?32:35, st=cut?2:5, padL=62,padR=22,padT=50,padB=70, baseY=H-padB, k=(baseY-padT)/(hi-lo), colW=(W-padL-padR)/TEMP.length;
+  const X=i=>padL+colW*(i+.5), Y=v=>baseY-(v-lo)*k;
+  let s='';
+  for(let v=lo;v<=hi;v+=st){const y=Y(v); s+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" class="gl"/>`+tx(padL-12,y+5,v,'tk','end');}
+  s+=`<line x1="${padL}" x2="${W-padR}" y1="${baseY}" y2="${baseY}" class="ax"/><line x1="${padL}" x2="${padL}" y1="${baseY}" y2="${padT-10}" class="ax"/>`;
+  if(cut) s+=`<path d="M${padL-9} ${baseY-14} l18 -6 M${padL-9} ${baseY-6} l18 -6" class="zz"/>`;
+  s+=`<polyline points="${TEMP.map(([d,v],i)=>X(i)+','+Y(v)).join(' ')}" class="tline"/>`;
+  TEMP.forEach(([d,v],i)=>{s+=`<circle cx="${X(i)}" cy="${Y(v)}" r="7" class="tdot"/>`+tx(X(i),Y(v)-14,v,'tk')+tx(X(i),baseY+24,d,'tk');});
+  s+=tx((padL+W-padR)/2,baseY+50,'יום בשבוע','tt')+`<text transform="translate(18 ${(padT+baseY)/2}) rotate(-90)" text-anchor="middle" class="tt" direction="rtl">טמפרטורה (מעלות)</text>`;
+  return s;
+}
+/* ---- 100 נתונים ---- */
+const c100El=document.createElement('div'); c100El.id='c100'; board.insertBefore(c100El,$('#over'));
+function draw100(W,H){
+  if(!c100El.children.length){
+    const pool=[]; S.freq.forEach(([v,f])=>{for(let k=0;k<f;k++)pool.push(v)});
+    const lo=S.freq[0][0], hi=S.freq[S.freq.length-1][0];
+    for(let i=0;i<100;i++){const v=pool[Math.floor(Math.random()*pool.length)], d=document.createElement('div');
+      d.className='card'; d.innerHTML=`<span class="n">${cardText(v)}</span>`; d.style.setProperty('--h',Math.round(205-clamp((v-lo)/(hi-lo),0,1)*170));
+      d.dataset.nx=Math.random(); d.dataset.ny=Math.random(); d.dataset.rot=(Math.random()-.5)*40; c100El.appendChild(d);}
+  }
+  const cw=clamp(W/14,28,48), ch=cw*.78;
+  [...c100El.children].forEach(d=>{const x=+d.dataset.nx*(W-cw-16)+8, y=+d.dataset.ny*(H-ch-16)+8;
+    d.style.width=cw+'px'; d.style.height=ch+'px'; d.style.fontSize=(cw*.5)+'px'; d.style.transform=`translate(${x}px,${y}px) rotate(${d.dataset.rot}deg)`;});
+}
+/* ---- שאלות לדיון באיסוף ובמיון ---- */
+function howQ(v){return S.sc.qual?`כמה תלמידים ענו "${lbl(v)}"?`:S.sc.how(v)}
+function qCollect(st){
+  const Q=!!S.sc.qual, ml=Q?`"${lbl(st.mode)}"`:st.mode;
+  return [
+    ['האם נוח לענות על שאלות כשהנתונים מפוזרים כך? למה?','לא. צריך לסרוק את כל הכרטיסים שוב ושוב, ובקלות מפספסים כרטיס או סופרים אותו פעמיים.'],
+    ['איזו תשובה נראית לכם הכי נפוצה? אתם בטוחים?',`בפועל זו ${ml}. כשהכרטיסים מפוזרים קשה להיות בטוחים, והעין רק מנחשת.`],
+    [howQ(st.mode)+' נסו לספור בלי לגעת.',`${st.mf}. קל לטעות בספירה כשהכרטיסים לא מסודרים.`],
+    Q?['כמה סוגים שונים של תשובות יש?',`${st.rows.length}: ${st.rows.map(r=>lbl(r.v)).join(', ')}.`]
+     :['מה הנתון הקטן ביותר, ומה הגדול ביותר? אתם בטוחים שלא פספסתם?',`${st.lo} ו-${st.hi}. כדי להיות בטוחים צריך לבדוק כל כרטיס.`],
+    ['מה הייתם עושים כדי שיהיה קל יותר לענות על השאלות האלה?',Q?'מקבצים יחד תשובות זהות. זה השלב הבא.':'מסדרים את הנתונים מהקטן לגדול, ככה שתשובות זהות עומדות יחד. זה השלב הבא.'],
+    ['מה היה קורה אם היו לנו 100 נתונים? לחצו על "מה אם היו 100 נתונים?"','הבלגן היה גדול הרבה יותר, ואי אפשר היה לספור בעין. לכן צריך דרך מסודרת לארגן נתונים.']];
+}
+function qSort(st){
+  if(S.sc.qual) return [
+    ['האם אפשר לסדר את התשובות "מהקטן לגדול"? למה לא?','לא. "אוטובוס" לא גדול מ"ברגל". אלה מילים, ולכן אפשר רק לקבץ.'],
+    ['מה הקיבוץ עזר לראות?','כמה יש מכל סוג, ואיזו קבוצה הכי גדולה.'],
+    [howQ(st.mode),`${st.mf}.`],
+    ['האם יש כאן נתון "באמצע"? האם הוא אומר משהו?','לא באמת. אם נסדר את הקבוצות בסדר אחר, יהיה באמצע נתון אחר. לכן בסקר איכותי אין חציון.'],
+    ['האם הסדר של הקבוצות משנה משהו?','לא. אפשר לסדר אותן בכל סדר, והנתונים לא משתנים.']];
+  const n=st.n, pos=medPositions(n), a=st.vs[pos[0]-1], b=st.vs[pos[pos.length-1]-1];
+  const t=st.rows[Math.floor(st.rows.length/2)].v, below=st.vs.filter(v=>v<t).length;
+  return [
+    ['מה השתנה אחרי המיון? מה קל יותר לראות עכשיו?',`רואים מיד את הנתון הקטן ביותר (${st.lo}, משמאל) ואת הגדול ביותר (${st.hi}, מימין), ותשובות זהות עומדות זו ליד זו.`],
+    ['למה מסדרים דווקא מהקטן לגדול, ולא סתם מקבצים תשובות זהות יחד?','כי למספרים יש סדר, והוא נותן מידע: רואים מה קטן ומה גדול, מה נמצא באמצע, וכמה נתונים קטנים או גדולים מערך מסוים. קיבוץ בלי סדר מראה רק כמה יש מכל סוג.'],
+    [howQ(st.mode)+' כמה זמן לקח לספור עכשיו, לעומת קודם?',`${st.mf}. כל הכרטיסים האלה עומדים יחד, וסופרים אותם בשנייה.`],
+    [`כמה נתונים קטנים מ-${t}? איך המיון עוזר לענות?`,`${below}. פשוט סופרים משמאל עד שמגיעים ל-${t}. בלי מיון היינו צריכים לבדוק כל כרטיס.`],
+    ['איזה נתון נמצא בדיוק באמצע השורה?', n%2?`${a}. בשורה יש ${n} נתונים, והנתון ה-${pos[0]} נמצא באמצע. זה רמז למדד שנלמד בהמשך: החציון.`:`בשורה יש ${n} נתונים, מספר זוגי, ולכן יש שני נתונים באמצע: ${a} ו-${b}. נחזור לזה בשלב החציון.`],
+    ['האם המיון שינה את הנתונים עצמם?','לא. אלה בדיוק אותם נתונים, רק בסדר אחר. המיון רק עוזר לקרוא אותם.']];
+}
+
+function redraw(){
+  const {W,H}=dims(); if(!W) return;
+  if(!(S.stage===0&&S.show100)) c100El.innerHTML='';
+  if(!(S.stage===5&&S.sub6==='inh')) hideCoins();
+  over.innerHTML=''; axes.innerHTML=''; axes.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  board.classList.toggle('merged', (S.stage===7&&S.merged)||(S.stage===8&&S.sub9==='axis'));
+  if(!useExtra()) hide(S.extra,W);
+  const act=active(), sorted=rankIt(act), st=stats(act), n=act.length, stage=S.stage, Q=!!S.sc.qual;
+  const scatter=c=>{const cw=clamp(W/S.scCols*.5,34,70), ch=cw*.78;
+    place(c,clamp(c.nx*W-cw/2,8,W-cw-8),clamp(c.ny*H-ch/2,8,H-ch-8),cw,ch,{rot:c.rot});};
+  const colTag=(T,i,html,cls)=>tag(T.colX(i)+T.colW/2,T.top-8,html,cls);
+  const idxOf=v=>st.rows.findIndex(r=>r.v===v);
+  const xCell=(k,i,r)=>k==='x'?lbl(r.v):(k==='f'?r.f:'');
+  const plainTable=()=>{const T=fitTable(st,W,H,40,['x','tray','f'],true), P=trayPos(T,st,sorted);
+    axes.innerHTML=tableSVG(T,st,{cell:xCell,tot:k=>k==='x'?'סה״כ':(k==='f'?st.n:'')});
+    sorted.forEach(c=>{const p=P.get(c); place(c,p.x,p.y,p.w,p.h)});};
+
+  if(stage===0){ if(S.show100){act.forEach(c=>hide(c,W)); draw100(W,H); return;} act.forEach(c=> c.collected?scatter(c):hide(c,W)); return; }
+
+  if(stage===1){
+    if(!S.sorted){act.forEach(scatter);return}
+    const L=lineLayout(sorted,W,H,H/2,64,Q); L.pos.forEach((p,c)=>place(c,p.x,p.y,p.w,p.h));
+    if(Q){ st.rows.forEach(r=>{const g=sorted.filter(c=>c.v===r.v).map(c=>L.pos.get(c));
+        const xs=g.map(q=>q.x), cx=(Math.min(...xs)+Math.max(...xs)+g[0].w)/2; tag(cx,g[0].y+g[0].h+12,lbl(r.v),'plain',true);}); return; }
+    const a=L.pos.get(sorted[0]), b=L.pos.get(sorted[n-1]);
+    tag(a.x+a.w/2,a.y-10,'הקטן ביותר'); tag(b.x+b.w/2,b.y-10,'הגדול ביותר');
+    return;
+  }
+
+  if(stage===2){
+    const all=S.grouped.size===st.rows.length;
+    const L=lineLayout(sorted,W,H,44,46,Q), keys=S.compact?['x','f']:['x','tray','f'];
+    const T=S.compact?fitTable(st,W,H,40,keys,true,true):fitTable(st,W,H,44+L.ch/2+30,keys,true);
+    axes.innerHTML=tableSVG(T,st,{cell:(k,i,r)=>k==='x'?lbl(r.v):(k==='f'&&S.grouped.has(r.v)?r.f:''),
+      tot:k=>k==='x'?(S.sumX?{t:Q?'?':st.sumX}:'סה״כ'):(k==='f'&&all?st.n:''),
+      hi:S.sumX?[]:[]});
+    const P=S.compact?null:trayPos(T,st,sorted);
+    sorted.forEach(c=>{
+      if(!S.grouped.has(c.v)){const p=L.pos.get(c); place(c,p.x,p.y,p.w,p.h,{fs:Math.min(L.cw*.55,22)}); return;}
+      if(S.compact){const p=cellPos(T,st,c,'f'); place(c,p.x,p.y,p.w,p.h,{op:0}); return;}
+      const p=P.get(c); place(c,p.x,p.y,p.w,p.h);
+    });
+    if(S.sumX) tag(T.totX+T.totW/2,T.top-8,Q?'אי אפשר לחבר':'לא נכון לחבר!','mode');
+    return;
+  }
+
+  if(stage===3){
+    const T=fitTable(st,W,H,60,['x','tray','f'],true), P=trayPos(T,st,sorted);
+    axes.innerHTML=tableSVG(T,st,{cell:(k,i,r)=>k==='x'?lbl(r.v):r.f, tot:k=>k==='x'?'סה״כ':(k==='f'?st.n:''),
+      hi:S.modeShown?st.modes.map(v=>({i:idxOf(v),c:'mode'})):[]});
+    sorted.forEach(c=>{const p=P.get(c), on=S.modeShown&&st.modes.includes(c.v);
+      place(c,p.x,p.y,p.w,p.h,{g:on?'mode':null,op:S.modeShown&&!on?.35:1})});
+    if(S.modeShown) st.modes.forEach(v=>colTag(T,idxOf(v),'השכיח','mode'));
+    return;
+  }
+
+  if(stage===4&&Q){ plainTable(); return; }
+  if(stage===5&&Q){
+    const avg=st.n/st.rows.length, T=fitTable(st,W,H,60,['x','tray','f'],true), P=trayPos(T,st,sorted);
+    axes.innerHTML=tableSVG(T,st,{cell:xCell,tot:k=>k==='x'?'סה״כ':(k==='f'?st.n:''),
+      hi:S.qMean?st.rows.map((r,i)=>r.f>avg?{i,c:'mean'}:null).filter(Boolean):[]});
+    sorted.forEach(c=>{const p=P.get(c); place(c,p.x,p.y,p.w,p.h)});
+    if(S.qMean) st.rows.forEach((r,i)=>colTag(T,i,r.f>avg?'מעל הממוצע':'מתחת לממוצע',r.f>avg?'mean':'plain'));
+    return;
+  }
+
+  if(stage===4){
+    const pos=medPositions(n);
+    if(S.sub5==='line'){
+      const L=lineLayout(sorted,W,H,H/2-20); const k=S.medK, done=n-2*k<=2;
+      sorted.forEach(c=>{const p=L.pos.get(c); const out=c.rank<k||c.rank>=n-k;
+        if(done&&!out){const z=1.9, w=p.w*z; place(c,W/2+(c.rank-(n-1)/2)*(w+10)-w/2,p.y-(p.h*z-p.h)/2,w,p.h*z,{g:'median'});}
+        else place(c,p.x,p.y+(out?H*.2:0),p.w,p.h,{op:out?.18:1})});
+      if(done){const p=L.pos.get(sorted[k]); tag(W/2,p.y-p.h*.5-12,(n%2||S.medReveal)?`חציון = ${fmt(st.med)}`:'?','median');}
+      return;
+    }
+    const t=S.tabStep, cum=t?st.rows[t-1].cum:0, found=cum>=pos[pos.length-1];
+    const T=fitTable(st,W,H,60,['x','tray','f','cum'],true), P=trayPos(T,st,sorted);
+    axes.innerHTML=tableSVG(T,st,{cell:(k,i,r)=>k==='x'?r.v:k==='f'?r.f:(k==='cum'&&i<t?r.cum:''),
+      tot:k=>k==='x'?'סה״כ':(k==='f'?st.n:''),
+      hi:t?(found?[...new Set(pos.map(p=>idxOf(st.vs[p-1])))].map(i=>({i,c:'median'})):[{i:t-1,c:'count'}]):[]});
+    sorted.forEach(c=>{const p=P.get(c); let o={};
+      if(found) o=pos.includes(c.rank+1)?{g:'median'}:{op:.3};
+      else if(t) o=c.rank<cum?{g:'count'}:{op:.3};
+      place(c,p.x,p.y,p.w,p.h,o)});
+    if(found) colTag(T,t-1,(n%2||S.medReveal)?`חציון = ${fmt(st.med)}`:'?','median');
+    else if(t) colTag(T,t-1,`עד כאן ${cum} נתונים`,'plain');
+    return;
+  }
+
+  if(stage===5){
+    if(S.sub6==='inh'){ act.forEach(c=>{const p={x:W/2,y:H+40}; place(c,p.x,p.y,10,10,{op:0})}); drawInh(W,H); return; }
+    if(S.sub6==='meaning'){
+      const padT=56,padB=44, maxV=dataDomain().slice(-1)[0], baseY=H-padB, k=(H-padT-padB)/maxV;
+      const L=lineLayout(sorted,W,H,H/2,60);
+      sorted.forEach(c=>{const p=L.pos.get(c); const v=S.leveled?st.mean:c.v; const h=Math.max(3,v*k);
+        place(c,p.x,baseY-h,p.w,h,{bar:true,hideN:S.leveled,fs:Math.min(p.w*.55,22)})});
+      const xs=[...L.pos.values()].map(p=>p.x), x0=Math.min(...xs)-10, x1=Math.max(...xs)+L.cw+10;
+      let s=`<line x1="${x0}" x2="${x1}" y1="${baseY}" y2="${baseY}" class="ax"/>`;
+      if(S.leveled){const y=baseY-st.mean*k; s+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" class="lvl"/>`;
+        tag((x0+x1)/2,y-10,`ממוצע = ${fmt(st.mean)}`,'mean');}
+      axes.innerHTML=s; return;
+    }
+    const R=st.rows.length, s=S.calcStep, r=Math.min(s,R);
+    const T=fitTable(st,W,H,50,['x','f','xf'],true,true);
+    axes.innerHTML=tableSVG(T,st,{cell:(k,i,q)=>k==='x'?q.v:k==='f'?q.f:(k==='xf'&&i<r?{sub:`${q.v} · ${q.f}`,main:q.xf}:''),
+      tot:k=>k==='x'?'סה״כ':k==='f'?st.n:(k==='xf'&&s>R?st.sum:''),
+      hi:s>0&&s<=R?[{i:s-1,c:'mean'}]:[]});
+    sorted.forEach(c=>{const p=cellPos(T,st,c,'f'); place(c,p.x,p.y,p.w,p.h,{op:0})});
+    return;
+  }
+
+  if(stage===6){
+    const R=st.rows.length, a=S.relStep, b=S.pctStep;
+    const T=fitTable(st,W,H,40,['x','f','rel','pct'],true,true);
+    const cur = b>0&&b<=R ? b-1 : (a>0&&a<=R&&b===0 ? a-1 : -1);
+    axes.innerHTML=tableSVG(T,st,{cell:(k,i,r)=>k==='x'?lbl(r.v):k==='f'?r.f:
+        k==='rel'?(i<a?{fr:[r.f,st.n],main:apS(r2(r.rel))}:''):(i<b?apS(p1(r.rel*100)):''),
+      tot:k=>k==='x'?'סה״כ':k==='f'?st.n:k==='rel'?(a>R?'1':''):(b>R?'100%':''),
+      hi:cur>=0?[{i:cur,c:'mean'}]:[]});
+    sorted.forEach(c=>{const p=cellPos(T,st,c,'f'); place(c,p.x,p.y,p.w,p.h,{op:0})});
+    return;
+  }
+
+  if(stage===7){
+    const T=tableGeom(st,W,H,16,['x','f'],true);
+    const g=stackGeom(dataDomain(),st.mf,W,H,T.bottom+36,70,S.merged?0:4), P=stackPos(sorted,g);
+    const B=S.built;
+    axes.innerHTML=tableSVG(T,st,{cell:xCell,tot:k=>k==='x'?'סה״כ':(k==='f'?st.n:''),
+      hi:B>0&&B<=st.rows.length&&!S.merged?[{i:B-1,c:'mean'}]:[]})+axesSVG(g);
+    sorted.forEach(c=>{const i=idxOf(c.v);
+      if(i<B){const p=P.get(c); place(c,p.x,p.y,p.w,p.h);}
+      else {const p=cellPos(T,st,c,'f'); place(c,p.x,p.y,p.w,p.h,{op:0});}});
+    st.rows.forEach((r,i)=>{ if(i<B&&(S.merged||i===B-1)) tag(g.xv(r.v),g.baseY-r.f*g.unit-6,`${r.f}`,'plain'); });
+    return;
+  }
+
+  if(stage===8&&S.sub9!=='out'){
+    const tab=S.sub9;
+    if(tab==='sum'&&Q){ plainTable(); return; }
+    if(tab==='axis'){
+      const ex=S.axEx, cut=S.axCut;
+      if(ex==='data'){
+        const d=dataDomain(), dom=cut?d:range(0,d[d.length-1],S.sc.step);
+        const g=stackGeom(dom,st.mf,W,H,40,70,0); g.xBreak=cut;
+        axes.innerHTML=axesSVG(g); const P=stackPos(sorted,g);
+        sorted.forEach(c=>{const p=P.get(c); place(c,p.x,p.y,p.w,p.h)});
+        return;
+      }
+      act.forEach(c=>hide(c,W));
+      axes.innerHTML= ex==='shoe'?shoeSVG(W,H,cut):tempSVG(W,H,cut);
+      return;
+    }
+    const vs=sorted.map(c=>c.v), lo=Math.min(...vs,...(tab==='tf'?S.cards.map(c=>c.base):[])), hi=Math.max(...vs,...(tab==='tf'?S.cards.map(c=>c.base):[]));
+    const step=S.sc.step, dom=range(Math.floor(lo/step)*step,Math.ceil(hi/step)*step,step);
+    const g=stackGeom(dom,Math.max(st.mf,9),W,H,40,150); axes.innerHTML=axesSVG(g); const P=stackPos(sorted,g);
+    sorted.forEach(c=>{const p=P.get(c); place(c,p.x,p.y,p.w,p.h)});
+    if(tab==='tf'&&(S.tfAdd||S.tfMul!==1)){const b=baseStats(); marker(g.xv(b.med),g.baseY+62,'','median',true); marker(g.xv(b.mean),g.baseY+104,'','mean',true);}
+    marker(g.xv(st.med),g.baseY+62,`חציון ${fmt(st.med)}`,'median');
+    marker(g.xv(st.mean),g.baseY+104,`ממוצע ${fmt(st.mean)}`,'mean');
+    if(tab==='sum') st.modes.forEach(v=>tag(g.xv(v),g.baseY-st.mf*g.unit-8,`שכיח ${v}`,'mode'));
+    return;
+  }
+
+  if(stage===8){
+    const o=S.sc.out, d=dataDomain();
+    const dom=range(Math.min(d[0],o.min),Math.max(d[d.length-1],o.max),S.sc.step);
+    const g=stackGeom(dom,Math.max(st.mf,9),W,H,40,150); axes.innerHTML=axesSVG(g); const P=stackPos(sorted,g);
+    sorted.forEach(c=>{const p=P.get(c); place(c,p.x,p.y,p.w,p.h)});
+    const b=stats(S.cards);
+    if(S.outOn){ marker(g.xv(b.med),g.baseY+62,'','median',true); marker(g.xv(b.mean),g.baseY+104,'','mean',true); }
+    marker(g.xv(st.med),g.baseY+62,`חציון ${fmt(st.med)}`,'median');
+    marker(g.xv(st.mean),g.baseY+104,`ממוצע ${fmt(st.mean)}`,'mean');
+  }
+}
+
+/* ===== פאנל ===== */
+function disc(list){
+  const k=S.qShown;
+  return `<div class="note q"><b class="t">שאלות לדיון</b>${k?`<ol class="ql">${list.slice(0,k).map(q=>Array.isArray(q)?`<li>${q[0]}<details><summary>תשובה</summary>${q[1]}</details></li>`:`<li>${q}</li>`).join('')}</ol>`:''}
+    ${k<list.length?`<button class="ghost sm" data-a="moreQ">${k===0?'הציגו שאלה':'שאלה נוספת'} (${k}/${list.length})</button>`:''}</div>`;
+}
+function medEven(a,b,st){
+  if(!S.medReveal) return `<div class="note q"><b class="t">עצרו וחשבו</b>נשארו שני נתונים באמצע: ${a} ו-${b}. איזה מהם הוא החציון? מה כדאי לעשות?</div>
+    <div class="btns"><button class="act" data-a="medReveal">הראו את הפתרון</button></div>`;
+  return `<p>מספר הנתונים זוגי, ולכן יש שני נתונים באמצע. מחברים אותם ומחלקים ב-2, כלומר לוקחים את הממוצע שלהם:</p>
+    <div class="math">${frac(`${a} + ${b}`,'2')} = ${fmt(st.med)}</div><div class="res median">החציון = ${fmt(st.med)}</div>
+    ${a!==b?`<div class="note median"><b class="t">שימו לב</b>במספר זוגי של נתונים החציון יכול לצאת ערך שאף אחד לא ענה (${fmt(st.med)}).</div>`:''}`;
+}
+function qMeanPanel(st){
+  const k=st.rows.length, avg=st.n/k, above=st.rows.filter(r=>r.f>avg).map(r=>lbl(r.v)), below=st.rows.filter(r=>r.f<avg).map(r=>lbl(r.v));
+  let h=`<p>את התשובות עצמן ("ברגל", "אוטובוס") אי אפשר לחבר. אבל את ה"כמה?" כן אפשר: כמה ${S.sc.who} יש <b>בממוצע בכל קטגוריה</b>?</p>
+    <div class="btns"><button class="act" data-a="qMean">${S.qMean?'הסתירו':'חשבו ממוצע לקטגוריה'}</button></div>`;
+  if(S.qMean) h+=`<div class="math rtl">ממוצע לקטגוריה = ${frac('סה״כ','מספר הקטגוריות')}</div>
+    <div class="math">${frac(st.n,k)} = ${fmt(avg)}</div>
+    <div class="res mean">ממוצע לקטגוריה = ${fmt(avg)}</div>
+    <div class="note mean"><b class="t">מה זה אומר?</b>אילו כל הדרכים היו פופולריות באותה מידה, בכל אחת היו ${fmt(avg)} ${S.sc.who}.<br>
+    מעל הממוצע: ${above.join(', ')}<br>מתחת לממוצע: ${below.join(', ')}</div>
+    ${disc([
+      ['למה הממוצע לקטגוריה הוא לא מספר שלם?',`כי זה ממוצע ולא ספירה. אין ${fmt(avg)} תלמידים, אבל המספר עוזר להשוות בין הקטגוריות.`],
+      ['אילו קטגוריות מעל הממוצע ואילו מתחת? מה זה אומר?',`מעל: ${above.join(', ')}. אלה הדרכים הפופולריות יותר מ"קבוצה ממוצעת".`],
+      [`אם נוסיף קטגוריה חדשה, "קורקינט", שאף אחד לא בחר, מה יקרה לממוצע לקטגוריה?`,`הוא ירד ל-${fmt(st.n/(k+1))}, למרות שאף תשובה לא השתנתה. הממוצע לקטגוריה תלוי במספר הקטגוריות.`],
+      ['האם הממוצע לקטגוריה אומר משהו על דרך ההגעה של תלמיד "רגיל"?','לא. הוא אומר כמה תלמידים יש בקבוצה ממוצעת. על התשובה הנפוצה מלמד השכיח.'],
+      ['מה ההבדל בין הממוצע כאן לבין הממוצע בסקר של שעות השינה?','בשעות השינה חישבנו ממוצע של ה"מה?" (התשובות). כאן מחשבים ממוצע של ה"כמה?" (מספר התלמידים בכל קבוצה).']
+    ])}`;
+  return h;
+}
+function tabs9(Q){
+  const T=Q?[['axis','קריאת גרף'],['sum','שאלות מסכמות']]:[['out','נתון חריג'],['tf','שינוי כל הנתונים'],['axis','קריאת גרף'],['sum','שאלות מסכמות']];
+  return `<div class="seg wrap">${T.map(([k,t])=>`<button data-a="sub9" data-v="${k}" aria-pressed="${S.sub9===k}">${t}</button>`).join('')}</div>`;
+}
+function renderPanel(){
+  const sc=S.sc, act=active(), st=stats(act), n=st.n, i=S.stage, Q=!!sc.qual;
+  let h=`<div class="kick">שלב ${i+1} מתוך ${STAGES.length}</div><h2>${STAGES[i]}</h2>`;
+
+  if(i===0){
+    const got=S.cards.filter(c=>c.collected).length;
+    h+=`<p class="lead">${sc.intro(n)}:<br><b>${sc.q}</b></p>
+      <div class="btns"><button class="act" data-a="collect" ${got===n||S.collecting?'disabled':''}>התחילו סקר</button>
+      <button class="ghost" data-a="collectAll" ${got===n?'disabled':''}>הציגו את כל התשובות</button></div>
+      <p class="count" id="cnt">נאספו ${got} תשובות מתוך ${n}</p>
+      <dl class="defs"><dt>נתון</dt><dd>${sc.datum}</dd><dt>משתנה</dt><dd>מה שבודקים: ${sc.x}</dd>
+      <dt>סוג המשתנה</dt><dd>${Q?'<b>איכותי</b>: התשובות הן מילים, לא מספרים':'<b>כמותי</b>: התשובות הן מספרים'}</dd>
+      <dt>נתונים גולמיים</dt><dd>כל התשובות כמו שהתקבלו, בלי סדר</dd></dl>
+      ${got===n?`<div class="btns"><button class="ghost" data-a="show100">${S.show100?`חזרה ל-${n} הנתונים שלנו`:'מה אם היו 100 נתונים?'}</button></div>`:''}
+      ${S.show100?`<div class="note mode"><b class="t">100 נתונים</b>נסו למצוא כאן את התשובה הנפוצה ביותר, או את הנתון הקטן ביותר. ובסקר ארצי יש אלפי תשובות!</div>`:''}
+      ${got===n?disc(qCollect(st)):''}`;
+  }
+
+  if(i===1){
+    if(Q){
+      h+=`<p>בנתונים איכותיים אין "קטן" ו"גדול". אפשר רק לקבץ יחד תשובות זהות.</p>
+        <div class="btns"><button class="act" data-a="sort">${S.sorted?'פזרו חזרה':'קבצו לפי סוג'}</button></div>`;
+    } else {
+      h+=`<p>הצעד הראשון בארגון הנתונים: מסדרים אותם מהקטן לגדול, משמאל לימין.</p>
+        <div class="btns"><button class="act" data-a="sort">${S.sorted?'פזרו חזרה':'מיינו מהקטן לגדול'}</button></div>`;
+      if(S.sorted) h+=`<p>הנתון הקטן ביותר: <b>${st.lo}</b><br>הנתון הגדול ביותר: <b>${st.hi}</b></p>`;
+    }
+    if(S.sorted) h+=disc(qSort(st));
+  }
+
+  if(i===2){
+    const all=S.grouped.size===st.rows.length;
+    h+=`<p>מקבצים נתונים זהים ובודקים:</p>
+      <dl class="defs"><dt>מה?</dt><dd>מה בדקנו: ${sc.x}</dd><dt>כמה?</dt><dd>כמה פעמים כל תשובה הופיעה. זו ה<b>שכיחות</b>.</dd></dl>
+      <div class="btns">${all?`<button class="act" data-a="compact">${S.compact?'הציגו שוב את הכרטיסים':'סכמו לטבלה נקייה'}</button>`
+        :`<button class="act" data-a="groupOne">קבצו ערך אחד</button><button class="ghost" data-a="groupAll">קבצו הכול</button>`}</div>`;
+    if(all){
+      h+=`<div class="note"><b class="t">בדיקה</b>סכום שורת "כמה?" הוא ${st.n}, בדיוק מספר ה${sc.who} שנשאלו.</div>
+        <div class="btns"><button class="ghost" data-a="sumX">${S.sumX?'הסתירו':'ומה אם נחבר את שורת "מה?"'}</button></div>`;
+      if(S.sumX) h+= Q
+        ? `<div class="note mode"><b class="t">אי אפשר לחבר מילים</b>כמה זה "ברגל" + "אוטובוס"? בשורת "מה?" רק כותבים מה בדקנו. סופרים רק את שורת "כמה?".</div>`
+        : `<div class="note mode"><b class="t">לא נכון לחבר את שורת "מה?"</b>${m(st.rows.map(r=>r.v).join(' + ')+' = '+st.sumX)}<br>
+          המספר ${st.sumX} לא אומר כלום. כל ערך כתוב בטבלה <b>פעם אחת בלבד</b>, למרות שהרבה ${sc.who} ענו אותו.
+          זה לא מספר ה${sc.who} (הוא ${st.n}, בשורת "כמה?") וגם לא ${sc.sumMeaning}.<br>
+          את ${sc.sumMeaning} נחשב בשלב הממוצע, בעזרת המכפלות.</div>`;
+    }
+  }
+
+  if(i===3){
+    h+=`<p><b>השכיח</b> הוא ה"מה?" שה"כמה?" שלו הכי גדול: התשובה שהופיעה הכי הרבה פעמים.</p>
+      <div class="btns"><button class="act" data-a="mode" ${S.modeShown?'disabled':''}>מצאו את השכיח</button></div>`;
+    if(S.modeShown){
+      const ml=st.modes.map(lbl).join(' ו-');
+      h+= st.modes.length>1
+        ? `<div class="res mode">יש ${st.modes.length} שכיחים: ${ml}</div>
+          <p>לכל אחד מהם ${st.mf} ${sc.who}, יותר מכל תשובה אחרת, ואף אחד מהם לא מנצח. במקרה כזה יש יותר משכיח אחד.</p>`
+        : `<div class="res mode">השכיח = ${ml}</div>
+          <p>${st.mf} ${sc.who} ${sc.verb}, יותר מכל תשובה אחרת.</p>`;
+      h+=`<div class="note mode"><b class="t">טעות נפוצה</b>השכיח הוא ה"מה?" (${ml}), לא ה"כמה?" (${st.mf}).</div>
+        <div class="note"><b class="t">מתי זה שימושי?</b>כשרוצים לדעת מה הכי נפוץ, למשל איזו מידת נעליים חנות צריכה להזמין הכי הרבה. ${Q?'בסקר איכותי כמו זה, השכיח הוא המדד היחיד שאפשר למצוא.':'אפשר למצוא שכיח גם לנתונים שאינם מספרים, כמו דרך ההגעה לבית הספר.'}</div>`;
+    }
+  }
+
+  if(Q&&(i===4||i===5)){
+    h+= i===4
+      ? `<p>החציון הוא הנתון שבאמצע, אחרי שמסדרים מהקטן לגדול.</p>
+         <div class="note mode"><b class="t">בסקר הזה אין חציון</b>את התשובות "ברגל", "אוטובוס", "רכב" ו"אופניים" אי אפשר לסדר מהקטן לגדול, ולכן אין "אמצע".</div>
+         <div class="note q"><b class="t">לדיון</b>נסו לסדר את התשובות בכמה סדרים שונים. האם ה"אמצע" נשאר אותו דבר?</div>`
+      : qMeanPanel(st);
+  }
+
+  if(i===4&&!Q){
+    const pos=medPositions(n);
+    h+=`<p><b>החציון</b> הוא הנתון שנמצא באמצע, אחרי שמסדרים את כל הנתונים מהקטן לגדול.</p>
+      <div class="seg"><button data-a="sub5" data-v="line" aria-pressed="${S.sub5==='line'}">בשורה</button><button data-a="sub5" data-v="table" aria-pressed="${S.sub5==='table'}">בטבלה</button></div>`;
+    if(S.sub5==='line'){
+      const left=n-2*S.medK, done=left<=2;
+      h+=`<p>מורידים בכל פעם נתון אחד מכל קצה, עד שנשאר האמצע.</p>
+        <div class="btns"><button class="act" data-a="medStep" ${done?'disabled':''}>הורידו זוג מהקצוות</button>
+        <button class="ghost" data-a="medAll" ${done?'disabled':''}>עד האמצע</button>
+        <button class="ghost" data-a="medReset" ${S.medK===0?'disabled':''}>מההתחלה</button></div>
+        <p class="count">${left===1?'נשאר נתון אחד':`נשארו ${left} נתונים`}</p>`;
+      if(done) h+= left===1
+        ? `<div class="res median">החציון = ${fmt(st.med)}</div><p>מספר הנתונים אי־זוגי, ולכן נשאר נתון אחד באמצע.</p>`
+        : medEven(st.vs[pos[0]-1],st.vs[pos[1]-1],st);
+    } else {
+      const t=S.tabStep, cum=t?st.rows[t-1].cum:0, found=cum>=pos[pos.length-1];
+      h+=`<p>כשיש הרבה נתונים לא מורידים אחד־אחד. קודם מחשבים איפה נמצא החציון:</p>
+        <div class="math rtl">מקום = ${frac(m(`${n} + 1`),'2')} = ${m(fmt((n+1)/2))}</div>
+        <p>${n%2?`החציון הוא הנתון ה-${pos[0]} ברשימה המסודרת.`:`אין נתון במקום ${fmt((n+1)/2)}, ולכן החציון הוא הממוצע של הנתון ה-${pos[0]} והנתון ה-${pos[1]}.`}
+        את המקום מוצאים בשורת "כמה עד כאן?": כמה נתונים ספרנו עד כה.</p>
+        <div class="btns"><button class="act" data-a="tabNext" ${found?'disabled':''}>עמודה הבאה</button>
+        <button class="ghost" data-a="tabReset" ${t===0?'disabled':''}>מההתחלה</button></div>`;
+      if(found){const a=st.vs[pos[0]-1], b=st.vs[pos[pos.length-1]-1];
+        if(n%2) h+=`<p>הנתון ה-${pos[0]} נמצא בעמודה של ${a}.</p><div class="res median">החציון = ${fmt(st.med)}</div>`;
+        else h+=(a===b?`<p>הנתונים ה-${pos[0]} וה-${pos[1]} נמצאים שניהם בעמודה של ${a}.</p>`:`<p>הנתון ה-${pos[0]} הוא ${a}, והנתון ה-${pos[1]} הוא ${b}. הם בשתי עמודות שונות.</p>`)+medEven(a,b,st);}
+    }
+    const doneAny = S.sub5==='line' ? n-2*S.medK<=2 : (S.tabStep&&st.rows[S.tabStep-1].cum>=pos[pos.length-1]);
+    if(doneAny&&(n%2||S.medReveal)) h+=`<div class="note median"><b class="t">מה זה אומר?</b>${sc.half(fmt(st.med))}</div>
+      <div class="note"><b class="t">טעות נפוצה</b>החציון הוא ערך הנתון (${fmt(st.med)}), לא המקום שלו ברשימה (${fmt((n+1)/2)}).</div>`;
+  }
+
+  if(i===5&&!Q){
+    h+=`<div class="seg"><button data-a="sub6" data-v="meaning" aria-pressed="${S.sub6==='meaning'}">מה זה אומר</button><button data-a="sub6" data-v="inh" aria-pressed="${S.sub6==='inh'}">ירושה</button><button data-a="sub6" data-v="calc" aria-pressed="${S.sub6==='calc'}">איך מחשבים</button></div>`;
+    if(S.sub6==='inh'){
+      const st0=S.inh;
+      h+=`<p>אמא השאירה <b>100 ₪</b> לחמשת הילדים, אבל כל אחד קיבל סכום אחר.</p>
+        <div class="btns"><button class="act" data-a="inhNext">${st0===0?'זה לא הוגן! אוספים את כל הכסף':st0===1?'מחלקים שווה בשווה':'מההתחלה'}</button></div>`;
+      if(st0>=1) h+=`<p>אוספים את כל הכסף יחד:</p><div class="math" dir="ltr" style="font-size:19px;white-space:nowrap">30 + 25 + 20 + 15 + 10 = 100</div>`;
+      if(st0===2) h+=`<p>ומחלקים ל-5 ילדים:</p><div class="math">${frac(100,5)} = 20</div>
+        <div class="res mean">כל אחד מקבל 20 ₪. זה הממוצע.</div>
+        <div class="note mean"><b class="t">מה זה ממוצע?</b>הסכום שכל אחד היה מקבל, אילו מחלקים את הכול שווה בשווה.</div>
+        ${disc([
+          ['מי הרוויח מהחלוקה מחדש ומי הפסיד?','נועה ואיתי הפסידו, יונתן ושירה הרוויחו. מאיה נשארה עם 20 ₪, בדיוק הממוצע.'],
+          ['האם הסכום הכולל השתנה?','לא. היו 100 ₪ ונשארו 100 ₪. רק החלוקה השתנתה.'],
+          ['כמה כסף נתנו מי שהיו מעל הממוצע, וכמה קיבלו מי שהיו מתחתיו?','נועה ואיתי נתנו 10 + 5 = 15 ₪, ויונתן ושירה קיבלו 5 + 10 = 15 ₪. מה שמעל הממוצע מכסה בדיוק את מה שחסר מתחתיו.'],
+          ['סבתא מוסיפה עוד 20 ₪ לירושה. כמה יקבל כל אחד?','120 ÷ 5 = 24 ₪.'],
+          ['אם היה ילד שישי, ואין כסף נוסף, כמה היה מקבל כל אחד?','100 ÷ 6 ≈ 16.67 ₪. הממוצע קטן, כי מחלקים בין יותר ילדים.']])}`;
+    }
+    else if(S.sub6==='meaning'){
+      h+=`<p>כל עמודה היא נתון אחד, והגובה שלה הוא הערך שלו. מה יקרה אם נחלק את הכול שווה בשווה?</p>
+        <div class="btns"><button class="act" data-a="level">${S.leveled?'החזירו למצב המקורי':'חלקו שווה בשווה'}</button></div>
+        <p>סכום כל הנתונים: <b>${st.sum}</b><br>מספר הנתונים: <b>${n}</b></p>`;
+      if(S.leveled){
+        h+=`<p>כל העמודות באותו גובה, והסכום לא השתנה.</p>
+          <div class="math rtl">ממוצע = ${frac('סכום הנתונים','מספר הנתונים')}</div><div class="math"><span class="xbar">x</span> = ${frac(st.sum,n)} = ${fmt(st.mean)}</div>
+          <div class="note mean"><b class="t">מה זה אומר?</b>אם מחלקים את הסכום הכולל שווה בשווה, ${sc.each} מגיע ${fmt(st.mean)}.</div>`;
+        if(!st.vs.includes(st.mean)) h+=`<div class="note"><b class="t">שימו לב</b>הממוצע לא חייב להיות אחד הנתונים. אף אחד לא ענה ${fmt(st.mean)}.</div>`;
+      }
+    } else {
+      const R=st.rows.length, s=S.calcStep;
+      h+=`<p>במקום לחבר ${n} מספרים, כופלים כל "מה?" ב"כמה?" שלו. התוצאות נקראות <b>מכפלות</b>.</p>
+        <div class="btns"><button class="act" data-a="calcNext" ${s>R?'disabled':''}>${s<R?'עמודה הבאה':'סכמו וחלקו'}</button>
+        <button class="ghost" data-a="calcReset" ${s===0?'disabled':''}>מההתחלה</button></div>`;
+      if(s>R) h+=`<p>סכום המכפלות (${st.sum}) הוא ${sc.sumMeaning}.</p>
+        <div class="math rtl">ממוצע = ${frac('סכום המכפלות','סכום השכיחויות')}</div>
+        <div class="math"><span class="xbar">x</span> = ${frac(`Σ <i class="v">x</i> · <i class="v">f</i>`,`Σ <i class="v">f</i>`)} = ${frac(st.sum,n)} = ${fmt(st.mean)}</div>
+        <div class="res mean">הממוצע = ${fmt(st.mean)}</div>
+        <div class="note mean"><b class="t">ממוצע משוקלל</b>כל ערך "שוקל" לפי מספר הפעמים שהוא הופיע. ככה מחשבים ממוצע משוקלל.</div>`;
+    }
+  }
+
+  if(i===6){
+    const R=st.rows.length, a=S.relStep, b=S.pctStep, top=st.rows.find(r=>r.v===st.mode);
+    h+=`<p><b>שכיחות יחסית</b>: איזה חלק מכל הנתונים הוא כל תשובה. מחלקים את ה"כמה?" בסה״כ.</p>
+      <div class="math rtl">שכיחות יחסית = ${frac('כמה','סה״כ')}</div>`;
+    if(a<=R) h+=`<div class="btns"><button class="act" data-a="relNext">${a<R?'עמודה הבאה':'סכמו'}</button><button class="ghost" data-a="relAll">הכול</button></div>`;
+    if(a>0&&a<=R){const r=st.rows[a-1], q=r2(r.rel); h+=`<div class="math">${frac(r.f,n)} ${q.ap?'≈':'='} ${q.t}</div>`;}
+    if(a>R){
+      h+=`<div class="note"><b class="t">בדיקה</b>סכום השכיחויות היחסיות הוא 1, כלומר כל הנתונים.</div>
+        ${st.rows.some(r=>r2(r.rel).ap)?`<div class="note mode"><b class="t">לא יצא עגול</b>כשמחלקים ב-${n} התוצאות לא תמיד עגולות, ולכן מעגלים (≈). בגלל העיגול, סכום המספרים המעוגלים יכול לצאת קצת שונה מ-1 או מ-100%.</div>`:''}
+        <p>כדי לעבור לאחוזים כופלים ב-100:</p><div class="math rtl">אחוזים = שכיחות יחסית × 100</div>`;
+      if(b<=R) h+=`<div class="btns"><button class="act" data-a="pctNext">${b<R?'עמודה הבאה':'סכמו'}</button><button class="ghost" data-a="pctAll">הכול</button></div>`;
+      if(b>0&&b<=R){const r=st.rows[b-1], q=r2(r.rel), pp=p1(r.rel*100); h+=`<div class="math">${frac(r.f,n)} · 100 ${pp.ap?'≈':'='} ${pp.t}</div>`;}
+      if(b>R) h+=`<div class="res mean">סה״כ = 100%</div>
+        <div class="note mean"><b class="t">מה זה אומר?</b>${sc.pct(p1(top.rel*100).t.replace('%',''),lbl(top.v))}</div>
+        <div class="note"><b class="t">למה אחוזים?</b>כך אפשר להשוות בין קבוצות בגדלים שונים, למשל בין כיתה של ${n} לשכבה של 120. בחדשות ובסקרים כמעט תמיד מדווחים באחוזים.</div>
+        <div class="note q"><b class="t">לדיון</b>אם נשאל את כל השכבה, 120 תלמידים, בערך כמה מהם יענו ${lbl(top.v)}?</div>`;
+    }
+  }
+
+  if(i===7){
+    const R=st.rows.length, B=S.built;
+    h+=`<p>עכשיו מציגים את הטבלה בדיאגרמת עמודות, עמודה אחרי עמודה.</p>
+      <dl class="defs"><dt>ציר אופקי</dt><dd>מה? (${sc.x})</dd><dt>ציר אנכי</dt><dd>כמה? (השכיחות)</dd></dl>
+      <div class="btns">${B<R?`<button class="act" data-a="buildNext">${B===0?'בנו את העמודה הראשונה':'עמודה הבאה'}</button><button class="ghost" data-a="buildAll">בנו הכול</button>`
+        :`<button class="act" data-a="merge">${S.merged?'הציגו ככרטיסים':'הציגו כעמודות'}</button><button class="ghost" data-a="buildReset">מההתחלה</button>`}</div>`;
+    if(B>0&&B<=R){const r=st.rows[B-1]; h+=`<p>ה"מה?" הוא <b>${lbl(r.v)}</b>, וה"כמה?" הוא <b>${r.f}</b>. לכן העמודה מעל ${lbl(r.v)} מגיעה לגובה ${r.f}.</p>`;}
+    if(B>=R) h+=`<div class="note q"><b class="t">לדיון</b>איך רואים את השכיח בדיאגרמה? ${Q?'מה היה קורה לדיאגרמה אם היינו מסדרים את הסוגים בסדר אחר?':'אפשר לראות בה גם את החציון או את הממוצע?'}</div>
+      <div class="note"><b class="t">שימו לב</b>הטבלה והדיאגרמה מספרות בדיוק אותו דבר. גובה כל עמודה הוא ה"כמה?" מהטבלה.</div>`;
+  }
+
+  if(i===8){
+    h+=tabs9(Q);
+    const t=S.sub9, d=dataDomain(), step=sc.step, b0=baseStats();
+    if(t==='out'){
+      const o=sc.out;
+      h+=`<p>שלושת המדדים מתארים את ה"מרכז" של הנתונים, אבל כל אחד מגיב אחרת לנתון חריג.</p>
+        <div class="btns"><button class="act" data-a="out">${S.outOn?'הסירו את הנתון החריג':o.btn}</button></div>`;
+      if(S.outOn) h+=`<div class="slider"><label id="outLbl" for="outR">${o.text(S.extra.v)}</label>
+        <input type="range" dir="ltr" id="outR" min="${o.min}" max="${o.max}" step="${sc.step}" value="${S.extra.v}"></div>`;
+      h+=`<div id="cmp">${cmpTable(b0,st,S.outOn)}</div>
+        <div class="note q"><b class="t">לדיון</b>${sc.ask}
+        ${S.showAns?`<p>${sc.ans}</p>`:`<div class="btns" style="margin:8px 0 0"><button class="ghost" data-a="ans">הציגו תשובה</button></div>`}</div>
+        ${disc([
+          ['האם השכיח השתנה כשהוספנו את הנתון החריג? למה?','לא. נוסף נתון אחד בלבד, והוא לא שינה איזה ערך הכי נפוץ.'],
+          ['מה יקרה לממוצע אם הנתון החריג יהיה דווקא קטן מאוד?','הממוצע יזוז לכיוון השני. הממוצע תמיד "נמשך" לכיוון הנתון החריג.'],
+          ['כמה נתונים חריגים צריך כדי שגם החציון יזוז?','הרבה. החציון זז רק כשמספיק נתונים עוברים מצד אחד שלו לצד השני.'],
+          ['גוף אחד רוצה להראות שהמצב טוב, ואחר רוצה להראות שהמצב רע. איך זה קשור למדדים?','כל אחד יכול לבחור את המדד שמתאים לטענה שלו. לכן חשוב לבדוק איזה מדד מציגים לנו.'],
+          ['מה עדיף לפרסם על מחירי דירות בעיר: ממוצע או חציון?','חציון. כמה דירות יוקרה יקרות מאוד מקפיצות את הממוצע.']])}
+        <div class="note"><b class="t">שכר בישראל</b>השכר הממוצע גבוה מהשכר החציוני, כי מעט משכורות גבוהות מאוד מושכות את הממוצע למעלה. כדי לדעת כמה מרוויח עובד "רגיל" מסתכלים על החציון.</div>`;
+    }
+    if(t==='tf'){
+      const changed=S.tfAdd||S.tfMul!==1, desc=`${S.tfMul!==1?'× 2':''}${S.tfAdd?` ${S.tfAdd>0?'+':'−'} ${Math.abs(S.tfAdd*step)}`:''}`;
+      h+=`<p>מה קורה למדדים כשמשנים את <b>כל</b> הנתונים באותה צורה? למשל: כל התלמידים קיבלו פקטור, או שהמחיר עלה בכל החנויות.</p>
+        <div class="note q"><b class="t">נחשו קודם</b>מה יקרה לממוצע, לחציון ולשכיח?</div>
+        <div class="btns"><button class="act" data-a="tfAdd" data-v="1">${m('+ '+step)} לכל הנתונים</button>
+        <button class="ghost" data-a="tfAdd" data-v="-1" ${b0.lo*S.tfMul+(S.tfAdd-1)*step<0?'disabled':''}>${m('− '+step)} מכל הנתונים</button>
+        <button class="ghost" data-a="tfMul">${S.tfMul===1?'כפלו ב-2':'בטלו את הכפל'}</button>
+        <button class="ghost" data-a="tfReset" ${changed?'':'disabled'}>איפוס</button></div>
+        ${changed?`<p>כל נתון: ${m('x → x '+desc)}</p>`:''}
+        <div id="cmp">${cmpTable(b0,st,changed)}</div>
+        ${changed?`<div class="note mean"><b class="t">הכלל</b>כשמוסיפים מספר לכל הנתונים, הממוצע, החציון והשכיח גדלים באותו מספר. כשכופלים את כל הנתונים, כל המדדים נכפלים באותו מספר. מספר הנתונים (הסה״כ) לא משתנה.</div>`:''}
+        ${disc([
+          [`מה יקרה לממוצע אם נוסיף ${step} לכל הנתונים?`,`הוא יגדל ב-${step}. גם החציון והשכיח יגדלו ב-${step}.`],
+          ['ומה יקרה אם נכפול את כל הנתונים ב-2?','כל המדדים יוכפלו ב-2.'],
+          ['האם מספר הנתונים (הסה״כ בשורת "כמה?") השתנה?','לא. שינינו את הערכים, לא את מספר ה'+sc.who+'.'],
+          ['האם צורת הדיאגרמה השתנתה כשהוספנו מספר לכולם?','לא. כל העמודות זזו יחד ימינה, והגבהים נשארו אותו דבר.'],
+          [`הממוצע היה ${fmt(b0.mean)}. אם מוסיפים ${step} לכל הנתונים, מה הממוצע החדש? אפשר לענות בלי לחשב מחדש?`,`כן: ${fmt(b0.mean)} + ${step} = ${fmt(b0.mean+step)}.`]])}`;
+    }
+    if(t==='axis'){
+      const exs=[]; if(!Q&&d[0]>0) exs.push(['data','הנתונים שלנו']); exs.push(['shoe','מידות נעליים'],['temp','טמפרטורות']);
+      h+=`<div class="seg wrap">${exs.map(([k,tt])=>`<button data-a="axEx" data-v="${k}" aria-pressed="${S.axEx===k}">${tt}</button>`).join('')}</div>`;
+      const ex=S.axEx, axisName=ex==='temp'?'האנכי':'האופקי';
+      const intro= ex==='data'?`בגרף של ה${sc.x} אין אף נתון מתחת ל-${d[0]}.`
+        : ex==='shoe'?'מידות הנעליים של תלמידי הכיתה. אין אף מידה קטנה מ-36.'
+        : 'הטמפרטורה בצהריים בכל יום בשבוע. אף יום לא היה קר מ-20 מעלות.';
+      h+=`<p>${intro}</p><div class="btns"><button class="act" data-a="axCut">${S.axCut?'הציגו את הציר המלא, מ-0':'חתכו את הציר '+axisName}</button></div>`;
+      h+= S.axCut ? `<div class="note mean"><b class="t">הקו השבור על הציר ${axisName}</b>מסמן שדילגנו על ערכים שאין בהם אף נתון. עכשיו הגרף משתמש בכל המקום, וקל לראות את ההבדלים.</div>`
+        : `<div class="note q"><b class="t">הסתכלו על הגרף</b>כמה מהגרף ריק? איפה נמצאים כל הנתונים?</div>`;
+      const qs=[
+        ['מה הבעיה בגרף כשהציר מתחיל מ-0?','רוב הגרף ריק, וכל הנתונים נדחסים לפינה. קשה לראות את ההבדלים ביניהם.'],
+        ['מתי מותר "לחתוך" ציר?','רק כשאין אף נתון בחלק שמדלגים עליו. למשל: אין מידות נעליים קטנות מ-36, ואין ימים קרים מ-20 מעלות.'],
+        ['איך יודע מי שקורא את הגרף שדילגנו על ערכים?','מסמנים קו שבור (זיגזג) על הציר, ליד ההתחלה שלו.'],
+        ['האם החיתוך שינה את הנתונים?','לא. אלה בדיוק אותם נתונים. רק הורדנו מהגרף חלק ריק.']];
+      if(ex==='shoe') qs.push(['איזו מידה הכי נפוצה? באיזה גרף קל יותר לראות את זה?','מידה 39. בגרף החתוך העמודות רחבות וברורות, וקל יותר להשוות ביניהן.']);
+      if(ex==='temp') qs.push(['באיזה יום היה הכי חם? באיזה גרף רואים טוב יותר איך הטמפרטורה השתנתה?','ביום ה׳ (31 מעלות). בגרף המלא הקו כמעט ישר, ובגרף החתוך רואים בבירור את העליות והירידות.']);
+      if(ex==='data') qs.push([`למה בגרף של ה${sc.x} מותר להתחיל מ-${d[0]}?`,`כי אין אף נתון קטן מ-${d[0]}. עמודות ריקות רק תופסות מקום.`]);
+      qs.push(['בדיאגרמת עמודות של "כמה?", אפשר לחתוך את הציר האנכי?','לא. כל עמודה מתחילה מ-0, ולכן אין בציר הזה "מקום ריק". אם נחתוך, חלק מהעמודות ייעלם וההבדלים ייראו גדולים מהמציאות.']);
+      h+=disc(qs);
+    }
+    if(t==='sum'){
+      if(Q) h+=`<p>בסקר איכותי המדד המתאים הוא השכיח, ואת הנתונים מתארים בעזרת אחוזים ודיאגרמה.</p>
+        ${disc([
+          [sc.ask,sc.ans],
+          ['איזה סוג דיאגרמה מתאים במיוחד לאחוזים בסקר כזה?','דיאגרמת עוגה: כל קטגוריה היא חלק מ-100%.'],
+          [`הממוצע לקטגוריה יצא ${fmt(st.n/st.rows.length)}. האם זה אומר שרוב התלמידים מגיעים ברגל?`,'לא. הממוצע לקטגוריה הוא על ה"כמה?", לא על ה"מה?". התשובה הנפוצה היא השכיח.'],
+          ['איזו שאלה כמותית אפשר לשאול על אותו נושא?','למשל: כמה דקות לוקחת לך הדרך לבית הספר? לסקר כזה כבר אפשר לחשב ממוצע וחציון.'],
+          ['איך הייתם משתמשים בתוצאות כדי לשפר את ההגעה לבית הספר?','למשל: לבדוק אם צריך עוד אוטובוסים, או חניה לאופניים.']])}`;
+      else h+=`<p>שאלות שמחברות בין כל המדדים. על הלוח מסומנים הממוצע, החציון והשכיח.</p>
+        ${cmpTable(b0,b0,false)}
+        ${disc([
+          ['האם הממוצע חייב להיות אחד הנתונים? והחציון? והשכיח?','הממוצע לא חייב. גם החציון לא תמיד (כשמספר הנתונים זוגי). השכיח תמיד אחד הנתונים.'],
+          ['האם יכולים להיות שני שכיחים?','כן, אם שני ערכים מופיעים הכי הרבה פעמים, באותה מידה.'],
+          ['האם הממוצע תמיד נמצא בין הנתון הקטן ביותר לגדול ביותר?','כן. הוא לא יכול להיות קטן מהקטן ביותר או גדול מהגדול ביותר.'],
+          [`אם נוסיף ${sc.who==='חנויות'?'חנות':'תלמיד'} שהנתון שלו שווה בדיוק לממוצע, האם הממוצע ישתנה?`,'לא. נתון ששווה לממוצע לא מזיז אותו.'],
+          ['למה בחדשות מדווחים לפעמים על "שכר חציוני" ולא על "שכר ממוצע"?','כי מעט משכורות גבוהות מאוד מושכות את הממוצע למעלה, והחציון מתאר טוב יותר עובד רגיל.'],
+          ['מתי הכי כדאי להשתמש בממוצע? ומתי בשכיח?','בממוצע: כשאין ערכים חריגים, או כשצריך את הסכום הכולל (ממוצע × מספר הנתונים = סכום). בשכיח: כשרוצים לדעת מה הכי נפוץ, וכשהנתונים איכותיים.']])}`;
+    }
+  }
+
+  panel.innerHTML=h;
+  if(S.scrollRes){S.scrollRes=false; const r=panel.querySelector('.res,.note.mode,.math:last-of-type'); if(r) r.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  if(i===8&&!Q&&S.sub9==='out'&&S.outOn){
+    $('#outR').addEventListener('input',e=>{setVal(S.extra,+e.target.value); $('#outLbl').textContent=S.sc.out.text(S.extra.v); $('#cmp').innerHTML=cmpTable(baseStats(),stats(active()),true); redraw();});
+  }
+}
+function cmpTable(b,a,two){
+  const rowM=(b,a)=>{const x=b.modes.join(' ו-'), y=a.modes.join(' ו-'); return `<tr><td>${b.modes.length>1||a.modes.length>1?'שכיחים':'שכיח'}</td><td>${x}</td>${two?`<td class="${x!==y?'chg':''}">${y}</td>`:''}</tr>`;};
+  const row=(name,x,y)=>`<tr><td>${name}</td><td>${fmtV(x)}</td>${two?`<td class="${x!==y?'chg':''}">${fmtV(y)}</td>`:''}</tr>`;
+  return `<table class="ft cmp"><thead><tr><th>מדד</th><th>${two?'לפני':'ערך'}</th>${two?'<th>אחרי</th>':''}</tr></thead><tbody>
+    ${row('ממוצע',b.mean,a.mean)}${row('חציון',b.med,a.med)}${rowM(b,a)}</tbody></table>`;
+}
+
+/* ===== פעולות ===== */
+const R_=()=>stats(active()).rows.length;
+const go=(fn,scroll)=>{fn(); if(scroll) S.scrollRes=true; redraw(); renderPanel();};
+const A={
+  async collect(){
+    const t=++S.tok; S.collecting=true; renderPanel();
+    for(const c of S.cards){ if(c.collected) continue;
+      c.collected=true; redraw();
+      const el=$('#cnt'); if(el) el.textContent=`נאספו ${S.cards.filter(c=>c.collected).length} תשובות מתוך ${S.cards.length}`;
+      await sleep(170); if(t!==S.tok) return; }
+    S.collecting=false; renderPanel();
+  },
+  collectAll(){S.tok++; S.collecting=false; S.cards.forEach(c=>c.collected=true); redraw(); renderPanel();},
+  moreQ(){S.qShown++; renderPanel();},
+  sort(){go(()=>{S.sorted=!S.sorted});},
+  groupOne(){const st=stats(active()); const r=st.rows.find(r=>!S.grouped.has(r.v)); if(r) go(()=>S.grouped.add(r.v));},
+  async groupAll(){const t=++S.tok; const st=stats(active());
+    for(const r of st.rows){ if(S.grouped.has(r.v)) continue; S.grouped.add(r.v); redraw(); renderPanel(); await sleep(550); if(t!==S.tok) return; }},
+  compact(){go(()=>{S.compact=!S.compact});},
+  sumX(){go(()=>{S.sumX=!S.sumX},true);},
+  mode(){go(()=>{S.modeShown=true},true);},
+  sub5(v){S.tok++; go(()=>{S.sub5=v; S.medK=0; S.tabStep=0; S.medReveal=false});},
+  even(v){S.tok++; go(()=>{S.even=v==='1'; if(S.even) setVal(S.extra,S.sc.evenV); S.medK=0; S.tabStep=0});},
+  medStep(){const n=active().length; if(n-2*S.medK>2) go(()=>{S.medK++},n-2*(S.medK+1)<=2);},
+  async medAll(){const t=++S.tok; const n=active().length;
+    while(n-2*S.medK>2){S.medK++; S.scrollRes=n-2*S.medK<=2; redraw(); renderPanel(); await sleep(380); if(t!==S.tok) return;}},
+  medReset(){S.tok++; go(()=>{S.medK=0; S.medReveal=false});},
+  medReveal(){go(()=>{S.medReveal=true},true);},
+  tabNext(){const st=stats(active()), pos=medPositions(st.n);
+    if(S.tabStep&&st.rows[S.tabStep-1].cum>=pos[pos.length-1]) return; go(()=>{S.tabStep++},true);},
+  tabReset(){go(()=>{S.tabStep=0; S.medReveal=false});},
+  sub6(v){go(()=>{S.sub6=v; S.leveled=false; S.calcStep=0; S.inh=0; S.qShown=1});},
+  inhNext(){go(()=>{S.inh=(S.inh+1)%3},true);},
+  level(){go(()=>{S.leveled=!S.leveled},true);},
+  calcNext(){if(S.calcStep<=R_()) go(()=>{S.calcStep++},true);},
+  calcReset(){go(()=>{S.calcStep=0});},
+  relNext(){if(S.relStep<=R_()) go(()=>{S.relStep++},true);},
+  async relAll(){const t=++S.tok; while(S.relStep<=R_()){S.relStep++; redraw(); renderPanel(); await sleep(450); if(t!==S.tok) return;}},
+  pctNext(){if(S.pctStep<=R_()) go(()=>{S.pctStep++},true);},
+  async pctAll(){const t=++S.tok; while(S.pctStep<=R_()){S.pctStep++; S.scrollRes=true; redraw(); renderPanel(); await sleep(450); if(t!==S.tok) return;}},
+  buildNext(){if(S.built<R_()) go(()=>{S.built++});},
+  async buildAll(){const t=++S.tok; while(S.built<R_()){S.built++; redraw(); renderPanel(); await sleep(900); if(t!==S.tok) return;}},
+  buildReset(){S.tok++; go(()=>{S.built=0; S.merged=false});},
+  merge(){go(()=>{S.merged=!S.merged});},
+  out(){go(()=>{S.outOn=!S.outOn; if(S.outOn) setVal(S.extra,S.sc.out.def)});},
+  ans(){S.showAns=true; renderPanel();},
+  qMean(){go(()=>{S.qMean=!S.qMean},true);},
+  sub9(v){S.tok++; go(()=>{S.sub9=v; S.outOn=false; S.tfAdd=0; S.tfMul=1; applyTf(); S.axEx=axDefault(); S.axCut=false; S.qShown=1;});},
+  axEx(v){go(()=>{S.axEx=v; S.axCut=false; S.qShown=1});},
+  axCut(){go(()=>{S.axCut=!S.axCut});},
+  show100(){go(()=>{S.show100=!S.show100});},
+  tfAdd(v){go(()=>{S.tfAdd+=+v; applyTf()});},
+  tfMul(){go(()=>{S.tfMul=S.tfMul===1?2:1; applyTf()});},
+  tfReset(){go(()=>{S.tfAdd=0; S.tfMul=1; applyTf()});},
+  x0(){go(()=>{S.x0=!S.x0});},
+  yCut(){go(()=>{S.yCut=!S.yCut});}
+};
+panel.addEventListener('click',e=>{const b=e.target.closest('button[data-a]'); if(!b||b.disabled) return; A[b.dataset.a](b.dataset.v);});
+
+/* ===== ניווט ===== */
+function axDefault(){return (!S.sc.qual&&dataDomain()[0]>0)?'data':'shoe'}
+function enterStage(i){
+  S.tok++; S.stage=i;
+  Object.assign(S,{collecting:false,sorted:false,grouped:new Set(),merged:false,compact:false,sumX:false,modeShown:false,qShown:1,
+    sub5:'line',medK:0,tabStep:0,even:false,sub6:'meaning',leveled:false,calcStep:0,inh:0,medReveal:false,show100:false,axEx:null,axCut:false,relStep:0,pctStep:0,built:0,outOn:false,showAns:false,qMean:false,
+    sub9:S.sc&&S.sc.qual?'axis':'out',tfAdd:0,tfMul:1,x0:false,yCut:false});
+  if(S.cards) applyTf();
+  S.axEx=axDefault();
+  if(i>0) S.cards.forEach(c=>c.collected=true);
+  redraw(); renderPanel(); renderSteps();
+  $('#prev').disabled=i===0; $('#next').disabled=i===STAGES.length-1;
+}
+function renderSteps(){
+  $('#steps').innerHTML=STAGES.map((t,k)=>`<button type="button" data-k="${k}" ${k===S.stage?'aria-current="step"':''}><span class="num">${k+1}</span>${t}</button>`).join('');
+}
+function renderN(){
+  $('#nsel').innerHTML=[25,28].map(k=>`<button type="button" data-n="${k}" aria-pressed="${k===S.N}">${k} נתונים</button>`).join('');
+}
+$('#nsel').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.N=+b.dataset.n; renderN(); build(S.scI); requestAnimationFrame(()=>enterStage(S.stage));});
+function renderScen(){
+  $('#scen').innerHTML=SCEN.map((s,k)=>`<button type="button" data-k="${k}" aria-pressed="${k===S.scI}">${s.tab}</button>`).join('');
+}
+$('#steps').addEventListener('click',e=>{const b=e.target.closest('button'); if(b) enterStage(+b.dataset.k)});
+$('#scen').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; build(+b.dataset.k); requestAnimationFrame(()=>enterStage(S.stage));});
+$('#prev').onclick=()=>S.stage>0&&enterStage(S.stage-1);
+$('#next').onclick=()=>S.stage<STAGES.length-1&&enterStage(S.stage+1);
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='ArrowLeft'||e.key==='PageDown'){ if(S.stage<STAGES.length-1) enterStage(S.stage+1); e.preventDefault(); }
+  if(e.key==='ArrowRight'||e.key==='PageUp'){ if(S.stage>0) enterStage(S.stage-1); e.preventDefault(); }
+});
+$('#fs').onclick=()=>{try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){}};
+new ResizeObserver(()=>redraw()).observe(board);
+
+renderN(); build(0); enterStage(0);
+</script>
+</body>
+</html>
